@@ -1,4 +1,3 @@
-import * as PIXI from "pixi.js";
 import ConsoleConfig from "./pixi-console-config";
 
 export default class PixiConsole extends PIXI.Container {

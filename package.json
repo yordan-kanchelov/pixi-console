@@ -31,7 +31,6 @@
     "homepage": "https://github.com/jkanchelov/pixi-console#readme",
     "dependencies": {
         "browserify": "^16.2.2",
-        "pixi.js": "^4.8.1",
         "tsify": "^4.0.0",
         "typescript": "^2.9.2",
         "uglify-js": "^3.4.0"
