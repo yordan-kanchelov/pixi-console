@@ -21,8 +21,14 @@ export default class PixiConsole extends PIXI.Container {
 
         PixiConsole.instance = this;
 
-        if (!config) {
-            config = new ConsoleConfig();
+        this.config = new ConsoleConfig();
+
+        if (config) {
+            for (const key in config) {
+                if (config.hasOwnProperty(key)) {
+                    (this.config as any)[key] = (config as any)[key];
+                }
+            }
         }
 
         this.config = config;
