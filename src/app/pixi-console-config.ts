@@ -4,7 +4,7 @@ export default class CanvasConsoleConfig {
     consoleAlpha: number = 0.2;
     addHideButton: boolean = true;
     addScrollButtons: boolean = false;
-    attachConsoleLog: boolean = false;
+    attachConsoleLog: boolean = true;
     attachConsoleError: boolean = true;
     backgroundColor: number = 0xfffff;
     scrollButtonsColor: number = 0xffff00;
