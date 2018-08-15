@@ -8,30 +8,32 @@ export default class PixiConsole extends PIXI.Container {
 
     private static instance: PixiConsole;
 
-    private consoleContainer: PIXI.Container;
+    private _config: ConsoleConfig;
+    private _consoleContainer: PIXI.Container;
 
-    private config: ConsoleConfig;
+    private _scrollDownButton: PIXI.Sprite;
+    private _scrollUpButton: PIXI.Sprite;
+    private _hideButton: PIXI.Sprite;
 
-    private scrollDownButton: PIXI.Sprite;
-    private scrollUpButton: PIXI.Sprite;
-    private hideButton: PIXI.Sprite;
+    private _origConsoleLog: Function;
+    private _origConsoleError: Function;
 
     constructor(config?: ConsoleConfig) {
         super();
 
         PixiConsole.instance = this;
 
-        this.config = new ConsoleConfig();
+        this._config = new ConsoleConfig();
 
         if (config) {
             for (const key in config) {
                 if (config.hasOwnProperty(key)) {
-                    (this.config as any)[key] = (config as any)[key];
+                    (this._config as any)[key] = (config as any)[key];
                 }
             }
         }
 
-        this.config = config;
+        this._config = config;
 
         this.init();
         this.hide();
@@ -63,10 +65,10 @@ export default class PixiConsole extends PIXI.Container {
             fill: color,
             fontSize: fontSize,
             wordWrap: true,
-            wordWrapWidth: this.config.consoleWidth - PixiConsole.TEXT_STARTING_X
+            wordWrapWidth: this._config.consoleWidth - PixiConsole.TEXT_STARTING_X
         });
 
-        let currentTextHeight = this.consoleContainer.children
+        let currentTextHeight = this._consoleContainer.children
             .map(textContainer => (textContainer as PIXI.Container).height + PixiConsole.TEXT_Y_SPACING)
             .reduce((totalHeight, currentHeight) => totalHeight + currentHeight, 0);
 
@@ -75,41 +77,48 @@ export default class PixiConsole extends PIXI.Container {
         textContainer.x = PixiConsole.TEXT_STARTING_X;
         textContainer.y = PixiConsole.TEXT_STARTING_Y + currentTextHeight;
 
-        this.consoleContainer.addChild(textContainer);
+        this._consoleContainer.addChild(textContainer);
 
-        if (PixiConsole.TEXT_STARTING_Y + currentTextHeight > this.config.consoleHeight) {
-            this.consoleContainer.y = -currentTextHeight;
+        if (PixiConsole.TEXT_STARTING_Y + currentTextHeight > this._config.consoleHeight) {
+            this._consoleContainer.y = -currentTextHeight;
         }
 
         return this;
     }
 
     clearConsole(): PixiConsole {
-        while (this.consoleContainer.children.length > 0) {
-            this.consoleContainer.removeChildAt(0);
+        while (this._consoleContainer.children.length > 0) {
+            this._consoleContainer.removeChildAt(0);
         }
-        this.consoleContainer.y = 0;
+        this._consoleContainer.y = 0;
 
         return this;
     }
 
     scrollUp(timesScroll: number = 1): PixiConsole {
-        if (this.consoleContainer.y < PixiConsole.SCROLLING_Y_STEP) {
-            this.consoleContainer.y += PixiConsole.SCROLLING_Y_STEP * timesScroll;
+        if (this._consoleContainer.y < PixiConsole.SCROLLING_Y_STEP) {
+            this._consoleContainer.y += PixiConsole.SCROLLING_Y_STEP * timesScroll;
         }
 
         return this;
     }
 
     scrollDown(timesScroll: number = 1): PixiConsole {
-        this.consoleContainer.y -= PixiConsole.SCROLLING_Y_STEP * timesScroll;
+        this._consoleContainer.y -= PixiConsole.SCROLLING_Y_STEP * timesScroll;
 
         return this;
     }
 
     public dispose(): void {
-        // TODO:
-        // return the default behavior of console.log & error
+        const self = this;
+
+        console.log = function() {
+            self._origConsoleLog.apply(this, arguments);
+        };
+
+        console.error = function() {
+            self._origConsoleLog.apply(this, arguments);
+        };
 
         this.setupHideButtonEvents(false);
         this.setupScrollButtonsEvents(false);
@@ -117,60 +126,60 @@ export default class PixiConsole extends PIXI.Container {
 
     private init(): void {
         var background: PIXI.Graphics = new PIXI.Graphics();
-        background.beginFill(this.config.backgroundColor, this.config.consoleAlpha);
-        background.drawRect(0, 0, this.config.consoleWidth, this.config.consoleHeight);
+        background.beginFill(this._config.backgroundColor, this._config.consoleAlpha);
+        background.drawRect(0, 0, this._config.consoleWidth, this._config.consoleHeight);
         background.endFill();
         this.addChild(background);
 
-        this.consoleContainer = new PIXI.Container();
+        this._consoleContainer = new PIXI.Container();
 
-        this.addChild(this.consoleContainer);
+        this.addChild(this._consoleContainer);
 
-        if (this.config.addHideButton) {
-            this.hideButton = this.getRect(0x68efad, 70, 70);
-            this.hideButton.y = this.config.consoleHeight - this.hideButton.height - 80;
-            this.hideButton.x = this.config.consoleWidth - this.hideButton.width - 150;
-            this.addChild(this.hideButton);
+        if (this._config.addHideButton) {
+            this._hideButton = this.getRect(0x68efad, 70, 70);
+            this._hideButton.y = this._config.consoleHeight - this._hideButton.height - 80;
+            this._hideButton.x = this._config.consoleWidth - this._hideButton.width - 150;
+            this.addChild(this._hideButton);
 
             this.setupHideButtonEvents();
         }
 
         // scroll buttons
-        if (this.config.addScrollButtons) {
-            this.scrollDownButton = this.getTriangle(this.config.scrollButtonsColor);
-            this.scrollUpButton = this.getTriangle(this.config.scrollButtonsColor);
-            this.scrollUpButton.anchor.x = this.scrollUpButton.anchor.y = this.scrollDownButton.anchor.x = this.scrollDownButton.anchor.y = 0.5;
+        if (this._config.addScrollButtons) {
+            this._scrollDownButton = this.getTriangle(this._config.scrollButtonsColor);
+            this._scrollUpButton = this.getTriangle(this._config.scrollButtonsColor);
+            this._scrollUpButton.anchor.x = this._scrollUpButton.anchor.y = this._scrollDownButton.anchor.x = this._scrollDownButton.anchor.y = 0.5;
 
-            this.scrollDownButton.x = this.config.consoleWidth - this.scrollDownButton.width - 20;
-            this.scrollUpButton.x = this.config.consoleWidth - this.scrollUpButton.width - 20;
+            this._scrollDownButton.x = this._config.consoleWidth - this._scrollDownButton.width - 20;
+            this._scrollUpButton.x = this._config.consoleWidth - this._scrollUpButton.width - 20;
 
-            this.scrollDownButton.y = this.config.consoleHeight - this.scrollDownButton.height;
-            this.scrollUpButton.y = this.config.consoleHeight - this.scrollUpButton.height - 80;
-            this.scrollDownButton.rotation += 3.15;
+            this._scrollDownButton.y = this._config.consoleHeight - this._scrollDownButton.height;
+            this._scrollUpButton.y = this._config.consoleHeight - this._scrollUpButton.height - 80;
+            this._scrollDownButton.rotation += 3.15;
 
-            this.addChild(this.scrollDownButton);
-            this.addChild(this.scrollUpButton);
+            this.addChild(this._scrollDownButton);
+            this.addChild(this._scrollUpButton);
 
             this.setupScrollButtonsEvents();
         }
     }
 
     private attachToConsole(): void {
-        let origLog = console.log;
-        let origError = console.error;
+        this._origConsoleLog = console.log;
+        this._origConsoleError = console.error;
         let self = this;
 
-        if (this.config.attachConsoleLog) {
+        if (this._config.attachConsoleLog) {
             console.log = function() {
                 this.log(arguments[0]);
 
-                return origLog.apply(this, arguments);
+                return self._origConsoleLog.apply(this, arguments);
             };
         }
 
-        if (this.config.attachConsoleError) {
+        if (this._config.attachConsoleError) {
             window.addEventListener("error", e => {
-                if (self.config.showOnError) {
+                if (self._config.showOnError) {
                     self.show();
                 }
 
@@ -182,12 +191,12 @@ export default class PixiConsole extends PIXI.Container {
             });
 
             console.error = function() {
-                if (self.config.showOnError) {
+                if (self._config.showOnError) {
                     self.show();
                 }
 
                 this.error(arguments[0]);
-                return origError.apply(this, arguments);
+                return self._origConsoleError.apply(this, arguments);
             };
         }
     }
@@ -205,25 +214,25 @@ export default class PixiConsole extends PIXI.Container {
         // attach the proper event depending if the device is mobile or desktop
 
         if (on) {
-            this.scrollUpButton.on("click", this.onScrollUpButtonClicked, this);
-            this.scrollUpButton.on("tap", this.onScrollUpButtonClicked, this);
-            this.scrollDownButton.on("click", this.onScrollDownButtonClicked, this);
-            this.scrollDownButton.on("tap", this.onScrollDownButtonClicked, this);
+            this._scrollUpButton.on("click", this.onScrollUpButtonClicked, this);
+            this._scrollUpButton.on("tap", this.onScrollUpButtonClicked, this);
+            this._scrollDownButton.on("click", this.onScrollDownButtonClicked, this);
+            this._scrollDownButton.on("tap", this.onScrollDownButtonClicked, this);
         } else {
-            this.scrollUpButton.off("click", this.onScrollUpButtonClicked, this);
-            this.scrollUpButton.off("tap", this.onScrollUpButtonClicked, this);
-            this.scrollDownButton.off("click", this.onScrollDownButtonClicked, this);
-            this.scrollDownButton.off("tap", this.onScrollDownButtonClicked, this);
+            this._scrollUpButton.off("click", this.onScrollUpButtonClicked, this);
+            this._scrollUpButton.off("tap", this.onScrollUpButtonClicked, this);
+            this._scrollDownButton.off("click", this.onScrollDownButtonClicked, this);
+            this._scrollDownButton.off("tap", this.onScrollDownButtonClicked, this);
         }
     }
 
     private setupHideButtonEvents(on: boolean = true) {
         if (on) {
-            this.hideButton.on("click", this.onHideButtonClicked, this);
-            this.hideButton.on("tap", this.onHideButtonClicked, this);
+            this._hideButton.on("click", this.onHideButtonClicked, this);
+            this._hideButton.on("tap", this.onHideButtonClicked, this);
         } else {
-            this.hideButton.off("click", this.onHideButtonClicked, this);
-            this.hideButton.off("tap", this.onHideButtonClicked, this);
+            this._hideButton.off("click", this.onHideButtonClicked, this);
+            this._hideButton.off("tap", this.onHideButtonClicked, this);
         }
     }
 
