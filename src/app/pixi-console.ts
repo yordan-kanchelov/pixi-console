@@ -1,6 +1,6 @@
-import ConsoleConfig from "./pixi-console-config";
+import { PixiConsoleConfig } from "./pixi-console-config";
 
-export default class PixiConsole extends PIXI.Container {
+export class PixiConsole extends PIXI.Container {
     private static readonly SCROLLING_Y_STEP = 40;
     private static readonly TEXT_STARTING_X = 10;
     private static readonly TEXT_STARTING_Y = 10;
@@ -8,7 +8,7 @@ export default class PixiConsole extends PIXI.Container {
 
     private static instance: PixiConsole;
 
-    private _config: ConsoleConfig;
+    private _config: PixiConsoleConfig;
     private _consoleContainer: PIXI.Container;
 
     private _scrollDownButton: PIXI.Sprite;
@@ -18,12 +18,12 @@ export default class PixiConsole extends PIXI.Container {
     private _origConsoleLog: Function;
     private _origConsoleError: Function;
 
-    constructor(config?: ConsoleConfig) {
+    constructor(config?: PixiConsoleConfig) {
         super();
 
         PixiConsole.instance = this;
 
-        this._config = new ConsoleConfig();
+        this._config = new PixiConsoleConfig();
 
         if (config) {
             for (const key in config) {
@@ -95,6 +95,8 @@ export default class PixiConsole extends PIXI.Container {
         return this;
     }
 
+    // TODO:
+    // make scrollUP/Down functions pure
     scrollUp(timesScroll: number = 1): PixiConsole {
         if (this._consoleContainer.y < PixiConsole.SCROLLING_Y_STEP) {
             this._consoleContainer.y += PixiConsole.SCROLLING_Y_STEP * timesScroll;

@@ -1,4 +1,4 @@
-export default class CanvasConsoleConfig {
+export class PixiConsoleConfig {
     consoleWidth: number = 1280;
     consoleHeight: number = 720;
     consoleAlpha: number = 0.2;
