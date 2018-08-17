@@ -1,6 +1,6 @@
 {
     "name": "pixi-console",
-    "version": "0.3.1",
+    "version": "0.3.3",
     "description": "pixi.js console",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",

@@ -27,7 +27,6 @@ var PixiConsole = /** @class */ (function (_super) {
                 }
             }
         }
-        _this._config = config;
         _this.init();
         _this.hide();
         _this.attachToConsole();
