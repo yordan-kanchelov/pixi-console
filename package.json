@@ -1,21 +1,12 @@
 {
     "name": "pixi-console",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "description": "pixi.js console",
-    "main": "./index.min.js",
-    "types": "./index.d.ts",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
     "scripts": {
-        "preinstall": "npm install -g typescript browserify uglify-js del-cli",
-        "prepublish": "del -f index.d.ts && tsc --emitDeclarationOnly --out index.d.ts && npm run build && npm run buildUncompressed",
-        "watch": "run-script-os",
-        "watch:win32": "watchify --debug -p [ tsify ] .\\src\\index.ts -o index.js",
-        "watch:darwin:linux:": "watchify --debug -p [ tsify ] ./src/index.ts -o index.js",
-        "build": "run-script-os",
-        "build:win32": "browserify .\\src\\index.ts -p [ tsify ] > index.min.js && uglifyjs --output .\\index.min.js  --compress --mangle -- .\\index.min.js",
-        "build:darwin:linux:": "browserify ./src/index.ts -p [ tsify ] > index.min.js && uglifyjs --output ./index.min.js  --compress --mangle -- ./index.min.js",
-        "buildUncompressed": "run-script-os",
-        "buildUncompressed:win32": "browserify .\\src\\index.ts -p [ tsify ] > index.js",
-        "buildUncompressed:darwin:linux:": "browserify ./src/index.ts -p [ tsify ] > index.js"
+        "watch": "tsc -w",
+        "build": "tsc"
     },
     "repository": {
         "type": "git",
