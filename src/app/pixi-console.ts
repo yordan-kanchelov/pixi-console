@@ -33,8 +33,6 @@ export class PixiConsole extends PIXI.Container {
             }
         }
 
-        this._config = config;
-
         this.init();
         this.hide();
         this.attachToConsole();
