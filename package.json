@@ -1,6 +1,6 @@
 {
     "name": "pixi-console",
-    "version": "0.4.0",
+    "version": "0.4.1",
     "description": "pixi.js console",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
@@ -22,15 +22,7 @@
         "url": "https://github.com/jkanchelov/pixi-console/issues"
     },
     "homepage": "https://github.com/jkanchelov/pixi-console#readme",
-    "dependencies": {
-        "browserify": "^16.2.2",
-        "tsify": "^4.0.0",
-        "typescript": "^2.9.2",
-        "uglify-js": "^3.4.0"
-    },
     "devDependencies": {
-        "@types/pixi.js": "^4.7.5",
-        "run-script-os": "^1.0.3",
-        "watchify": "^3.11.0"
+        "@types/pixi.js": "^4.7.5"
     }
 }
