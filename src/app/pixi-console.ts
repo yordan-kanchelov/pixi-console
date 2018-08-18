@@ -1,6 +1,8 @@
 import { PixiConsoleConfig } from "./pixi-console-config";
 
 export class PixiConsole extends PIXI.Container {
+    // TODO:
+    // make those properties editable
     private static readonly SCROLLING_Y_STEP = 40;
     private static readonly TEXT_STARTING_X = 10;
     private static readonly TEXT_STARTING_Y = 10;
@@ -58,6 +60,8 @@ export class PixiConsole extends PIXI.Container {
         return this;
     }
 
+    // TODO:
+    // color and fontsize params should come from the config object
     print(message: string, color: number = 0xffffff, fontSize: number = 30): PixiConsole {
         let text = new PIXI.Text(message, {
             fill: color,
@@ -202,11 +206,11 @@ export class PixiConsole extends PIXI.Container {
     }
 
     private printLog(message: string): void {
-        this.print(message);
+        this.print(message, 0xffffff, this._config.fontSize);
     }
 
     private printError(message: string): void {
-        this.print(message, 0xff0000);
+        this.print(message, 0xff0000, this._config.fontSize);
     }
 
     private setupScrollButtonsEvents(on: boolean = true) {

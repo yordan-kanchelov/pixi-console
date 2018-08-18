@@ -46,6 +46,8 @@ var PixiConsole = /** @class */ (function (_super) {
         this.visible = false;
         return this;
     };
+    // TODO:
+    // color and fontsize params should come from the config object
     PixiConsole.prototype.print = function (message, color, fontSize) {
         if (color === void 0) { color = 0xffffff; }
         if (fontSize === void 0) { fontSize = 30; }
@@ -163,10 +165,10 @@ var PixiConsole = /** @class */ (function (_super) {
         }
     };
     PixiConsole.prototype.printLog = function (message) {
-        this.print(message);
+        this.print(message, 0xffffff, this._config.fontSize);
     };
     PixiConsole.prototype.printError = function (message) {
-        this.print(message, 0xff0000);
+        this.print(message, 0xff0000, this._config.fontSize);
     };
     PixiConsole.prototype.setupScrollButtonsEvents = function (on) {
         // TODO:
@@ -225,6 +227,8 @@ var PixiConsole = /** @class */ (function (_super) {
         result.interactive = true;
         return result;
     };
+    // TODO:
+    // make those properties editable
     PixiConsole.SCROLLING_Y_STEP = 40;
     PixiConsole.TEXT_STARTING_X = 10;
     PixiConsole.TEXT_STARTING_Y = 10;

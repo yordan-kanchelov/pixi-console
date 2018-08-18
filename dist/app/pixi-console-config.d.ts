@@ -1,12 +1,13 @@
 export declare class PixiConsoleConfig {
     consoleWidth: number;
     consoleHeight: number;
-    consoleAlpha: number;
-    addHideButton: boolean;
+    fontSize: number;
     addScrollButtons: boolean;
-    attachConsoleLog: boolean;
+    addHideButton: boolean;
+    showOnError: boolean;
     attachConsoleError: boolean;
+    attachConsoleLog: boolean;
+    consoleAlpha: number;
     backgroundColor: number;
     scrollButtonsColor: number;
-    showOnError: boolean;
 }
