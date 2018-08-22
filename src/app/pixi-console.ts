@@ -6,7 +6,7 @@ export class PixiConsole extends PIXI.Container {
     private static readonly SCROLLING_Y_STEP = 40;
     private static readonly TEXT_STARTING_X = 10;
     private static readonly TEXT_STARTING_Y = 10;
-    private static readonly TEXT_Y_SPACING = 40;
+    private static readonly TEXT_Y_SPACING = 10;
 
     private static instance: PixiConsole;
 
