@@ -61,7 +61,7 @@ export class PixiConsole extends PIXI.Container {
     }
 
     // TODO:
-    // color and fontsize params should come from the config object
+    // default color and fontsize params should come from the config object
     print(message: string, color: number = 0xffffff, fontSize: number = 30): PixiConsole {
         let text = new PIXI.Text(message, {
             fill: color,
@@ -123,9 +123,6 @@ export class PixiConsole extends PIXI.Container {
         console.error = function() {
             self._origConsoleLog.apply(this, arguments);
         };
-
-        this.setupHideButtonEvents(false);
-        this.setupScrollButtonsEvents(false);
     }
 
     private init(): void {
@@ -138,34 +135,6 @@ export class PixiConsole extends PIXI.Container {
         this._consoleContainer = new PIXI.Container();
 
         this.addChild(this._consoleContainer);
-
-        if (this._config.addHideButton) {
-            this._hideButton = this.getRect(0x68efad, 70, 70);
-            this._hideButton.y = this._config.consoleHeight - this._hideButton.height - 80;
-            this._hideButton.x = this._config.consoleWidth - this._hideButton.width - 150;
-            this.addChild(this._hideButton);
-
-            this.setupHideButtonEvents();
-        }
-
-        // scroll buttons
-        if (this._config.addScrollButtons) {
-            this._scrollDownButton = this.getTriangle(this._config.scrollButtonsColor);
-            this._scrollUpButton = this.getTriangle(this._config.scrollButtonsColor);
-            this._scrollUpButton.anchor.x = this._scrollUpButton.anchor.y = this._scrollDownButton.anchor.x = this._scrollDownButton.anchor.y = 0.5;
-
-            this._scrollDownButton.x = this._config.consoleWidth - this._scrollDownButton.width - 20;
-            this._scrollUpButton.x = this._config.consoleWidth - this._scrollUpButton.width - 20;
-
-            this._scrollDownButton.y = this._config.consoleHeight - this._scrollDownButton.height;
-            this._scrollUpButton.y = this._config.consoleHeight - this._scrollUpButton.height - 80;
-            this._scrollDownButton.rotation += 3.15;
-
-            this.addChild(this._scrollDownButton);
-            this.addChild(this._scrollUpButton);
-
-            this.setupScrollButtonsEvents();
-        }
     }
 
     private attachToConsole(): void {
@@ -175,7 +144,7 @@ export class PixiConsole extends PIXI.Container {
 
         if (this._config.attachConsoleLog) {
             console.log = function() {
-                this.log(arguments[0]);
+                this.printLog(...Array.from(arguments));
 
                 return self._origConsoleLog.apply(this, arguments);
             };
@@ -205,76 +174,13 @@ export class PixiConsole extends PIXI.Container {
         }
     }
 
-    private printLog(message: string): void {
-        this.print(message, 0xffffff, this._config.fontSize);
+    private printLog(...messages: string[]): void {
+        messages.forEach(message => {
+            this.print(message, 0xffffff, this._config.fontSize);
+        });
     }
 
     private printError(message: string): void {
         this.print(message, 0xff0000, this._config.fontSize);
-    }
-
-    private setupScrollButtonsEvents(on: boolean = true) {
-        // TODO:
-        // attach the proper event depending if the device is mobile or desktop
-
-        if (on) {
-            this._scrollUpButton.on("click", this.onScrollUpButtonClicked, this);
-            this._scrollUpButton.on("tap", this.onScrollUpButtonClicked, this);
-            this._scrollDownButton.on("click", this.onScrollDownButtonClicked, this);
-            this._scrollDownButton.on("tap", this.onScrollDownButtonClicked, this);
-        } else {
-            this._scrollUpButton.off("click", this.onScrollUpButtonClicked, this);
-            this._scrollUpButton.off("tap", this.onScrollUpButtonClicked, this);
-            this._scrollDownButton.off("click", this.onScrollDownButtonClicked, this);
-            this._scrollDownButton.off("tap", this.onScrollDownButtonClicked, this);
-        }
-    }
-
-    private setupHideButtonEvents(on: boolean = true) {
-        if (on) {
-            this._hideButton.on("click", this.onHideButtonClicked, this);
-            this._hideButton.on("tap", this.onHideButtonClicked, this);
-        } else {
-            this._hideButton.off("click", this.onHideButtonClicked, this);
-            this._hideButton.off("tap", this.onHideButtonClicked, this);
-        }
-    }
-
-    private onHideButtonClicked() {
-        this.hide();
-    }
-
-    private onScrollDownButtonClicked() {
-        this.scrollDown(2);
-    }
-
-    private onScrollUpButtonClicked() {
-        this.scrollUp(2);
-    }
-
-    private getTriangle(color: number): PIXI.Sprite {
-        const triangle: PIXI.Graphics = new PIXI.Graphics();
-        triangle.beginFill(color);
-        triangle.moveTo(25, 0);
-        triangle.lineTo(0, 75);
-        triangle.lineTo(50, 75);
-        triangle.endFill();
-
-        let result = new PIXI.Sprite(triangle.generateCanvasTexture());
-        result.interactive = true;
-
-        return result;
-    }
-
-    private getRect(color: number, width: number, height: number): PIXI.Sprite {
-        const rect: PIXI.Graphics = new PIXI.Graphics();
-        rect.beginFill(color, 1);
-        rect.drawRect(0, 0, width, height);
-        rect.endFill();
-
-        let result = new PIXI.Sprite(rect.generateCanvasTexture());
-        result.interactive = true;
-
-        return result;
     }
 }
