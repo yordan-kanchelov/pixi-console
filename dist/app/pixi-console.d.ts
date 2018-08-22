@@ -26,11 +26,4 @@ export declare class PixiConsole extends PIXI.Container {
     private attachToConsole;
     private printLog;
     private printError;
-    private setupScrollButtonsEvents;
-    private setupHideButtonEvents;
-    private onHideButtonClicked;
-    private onScrollDownButtonClicked;
-    private onScrollUpButtonClicked;
-    private getTriangle;
-    private getRect;
 }

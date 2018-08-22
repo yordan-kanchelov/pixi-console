@@ -1,11 +1,8 @@
 "use strict";
 var __extends = (this && this.__extends) || (function () {
-    var extendStatics = function (d, b) {
-        extendStatics = Object.setPrototypeOf ||
-            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
-        return extendStatics(d, b);
-    }
+    var extendStatics = Object.setPrototypeOf ||
+        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
     return function (d, b) {
         extendStatics(d, b);
         function __() { this.constructor = d; }
@@ -47,7 +44,7 @@ var PixiConsole = /** @class */ (function (_super) {
         return this;
     };
     // TODO:
-    // color and fontsize params should come from the config object
+    // default color and fontsize params should come from the config object
     PixiConsole.prototype.print = function (message, color, fontSize) {
         if (color === void 0) { color = 0xffffff; }
         if (fontSize === void 0) { fontSize = 30; }
@@ -99,8 +96,6 @@ var PixiConsole = /** @class */ (function (_super) {
         console.error = function () {
             self._origConsoleLog.apply(this, arguments);
         };
-        this.setupHideButtonEvents(false);
-        this.setupScrollButtonsEvents(false);
     };
     PixiConsole.prototype.init = function () {
         var background = new PIXI.Graphics();
@@ -110,27 +105,6 @@ var PixiConsole = /** @class */ (function (_super) {
         this.addChild(background);
         this._consoleContainer = new PIXI.Container();
         this.addChild(this._consoleContainer);
-        if (this._config.addHideButton) {
-            this._hideButton = this.getRect(0x68efad, 70, 70);
-            this._hideButton.y = this._config.consoleHeight - this._hideButton.height - 80;
-            this._hideButton.x = this._config.consoleWidth - this._hideButton.width - 150;
-            this.addChild(this._hideButton);
-            this.setupHideButtonEvents();
-        }
-        // scroll buttons
-        if (this._config.addScrollButtons) {
-            this._scrollDownButton = this.getTriangle(this._config.scrollButtonsColor);
-            this._scrollUpButton = this.getTriangle(this._config.scrollButtonsColor);
-            this._scrollUpButton.anchor.x = this._scrollUpButton.anchor.y = this._scrollDownButton.anchor.x = this._scrollDownButton.anchor.y = 0.5;
-            this._scrollDownButton.x = this._config.consoleWidth - this._scrollDownButton.width - 20;
-            this._scrollUpButton.x = this._config.consoleWidth - this._scrollUpButton.width - 20;
-            this._scrollDownButton.y = this._config.consoleHeight - this._scrollDownButton.height;
-            this._scrollUpButton.y = this._config.consoleHeight - this._scrollUpButton.height - 80;
-            this._scrollDownButton.rotation += 3.15;
-            this.addChild(this._scrollDownButton);
-            this.addChild(this._scrollUpButton);
-            this.setupScrollButtonsEvents();
-        }
     };
     PixiConsole.prototype.attachToConsole = function () {
         var _this = this;
@@ -139,7 +113,7 @@ var PixiConsole = /** @class */ (function (_super) {
         var self = this;
         if (this._config.attachConsoleLog) {
             console.log = function () {
-                this.log(arguments[0]);
+                this.printLog.apply(this, Array.from(arguments));
                 return self._origConsoleLog.apply(this, arguments);
             };
         }
@@ -164,68 +138,18 @@ var PixiConsole = /** @class */ (function (_super) {
             };
         }
     };
-    PixiConsole.prototype.printLog = function (message) {
-        this.print(message, 0xffffff, this._config.fontSize);
+    PixiConsole.prototype.printLog = function () {
+        var _this = this;
+        var messages = [];
+        for (var _i = 0; _i < arguments.length; _i++) {
+            messages[_i] = arguments[_i];
+        }
+        messages.forEach(function (message) {
+            _this.print(message, 0xffffff, _this._config.fontSize);
+        });
     };
     PixiConsole.prototype.printError = function (message) {
         this.print(message, 0xff0000, this._config.fontSize);
-    };
-    PixiConsole.prototype.setupScrollButtonsEvents = function (on) {
-        // TODO:
-        // attach the proper event depending if the device is mobile or desktop
-        if (on === void 0) { on = true; }
-        if (on) {
-            this._scrollUpButton.on("click", this.onScrollUpButtonClicked, this);
-            this._scrollUpButton.on("tap", this.onScrollUpButtonClicked, this);
-            this._scrollDownButton.on("click", this.onScrollDownButtonClicked, this);
-            this._scrollDownButton.on("tap", this.onScrollDownButtonClicked, this);
-        }
-        else {
-            this._scrollUpButton.off("click", this.onScrollUpButtonClicked, this);
-            this._scrollUpButton.off("tap", this.onScrollUpButtonClicked, this);
-            this._scrollDownButton.off("click", this.onScrollDownButtonClicked, this);
-            this._scrollDownButton.off("tap", this.onScrollDownButtonClicked, this);
-        }
-    };
-    PixiConsole.prototype.setupHideButtonEvents = function (on) {
-        if (on === void 0) { on = true; }
-        if (on) {
-            this._hideButton.on("click", this.onHideButtonClicked, this);
-            this._hideButton.on("tap", this.onHideButtonClicked, this);
-        }
-        else {
-            this._hideButton.off("click", this.onHideButtonClicked, this);
-            this._hideButton.off("tap", this.onHideButtonClicked, this);
-        }
-    };
-    PixiConsole.prototype.onHideButtonClicked = function () {
-        this.hide();
-    };
-    PixiConsole.prototype.onScrollDownButtonClicked = function () {
-        this.scrollDown(2);
-    };
-    PixiConsole.prototype.onScrollUpButtonClicked = function () {
-        this.scrollUp(2);
-    };
-    PixiConsole.prototype.getTriangle = function (color) {
-        var triangle = new PIXI.Graphics();
-        triangle.beginFill(color);
-        triangle.moveTo(25, 0);
-        triangle.lineTo(0, 75);
-        triangle.lineTo(50, 75);
-        triangle.endFill();
-        var result = new PIXI.Sprite(triangle.generateCanvasTexture());
-        result.interactive = true;
-        return result;
-    };
-    PixiConsole.prototype.getRect = function (color, width, height) {
-        var rect = new PIXI.Graphics();
-        rect.beginFill(color, 1);
-        rect.drawRect(0, 0, width, height);
-        rect.endFill();
-        var result = new PIXI.Sprite(rect.generateCanvasTexture());
-        result.interactive = true;
-        return result;
     };
     // TODO:
     // make those properties editable
