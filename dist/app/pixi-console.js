@@ -1,8 +1,11 @@
 "use strict";
 var __extends = (this && this.__extends) || (function () {
-    var extendStatics = Object.setPrototypeOf ||
-        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+    var extendStatics = function (d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    }
     return function (d, b) {
         extendStatics(d, b);
         function __() { this.constructor = d; }
@@ -156,7 +159,7 @@ var PixiConsole = /** @class */ (function (_super) {
     PixiConsole.SCROLLING_Y_STEP = 40;
     PixiConsole.TEXT_STARTING_X = 10;
     PixiConsole.TEXT_STARTING_Y = 10;
-    PixiConsole.TEXT_Y_SPACING = 40;
+    PixiConsole.TEXT_Y_SPACING = 10;
     return PixiConsole;
 }(PIXI.Container));
 exports.PixiConsole = PixiConsole;

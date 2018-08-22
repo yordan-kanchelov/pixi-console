@@ -8,9 +8,6 @@ export declare class PixiConsole extends PIXI.Container {
     private static instance;
     private _config;
     private _consoleContainer;
-    private _scrollDownButton;
-    private _scrollUpButton;
-    private _hideButton;
     private _origConsoleLog;
     private _origConsoleError;
     constructor(config?: PixiConsoleConfig);
