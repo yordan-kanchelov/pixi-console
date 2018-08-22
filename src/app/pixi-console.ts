@@ -13,10 +13,6 @@ export class PixiConsole extends PIXI.Container {
     private _config: PixiConsoleConfig;
     private _consoleContainer: PIXI.Container;
 
-    private _scrollDownButton: PIXI.Sprite;
-    private _scrollUpButton: PIXI.Sprite;
-    private _hideButton: PIXI.Sprite;
-
     private _origConsoleLog: Function;
     private _origConsoleError: Function;
 
