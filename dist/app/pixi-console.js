@@ -1,11 +1,8 @@
 "use strict";
 var __extends = (this && this.__extends) || (function () {
-    var extendStatics = function (d, b) {
-        extendStatics = Object.setPrototypeOf ||
-            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
-        return extendStatics(d, b);
-    }
+    var extendStatics = Object.setPrototypeOf ||
+        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
     return function (d, b) {
         extendStatics(d, b);
         function __() { this.constructor = d; }
@@ -46,16 +43,20 @@ var PixiConsole = /** @class */ (function (_super) {
         this.visible = false;
         return this;
     };
-    // TODO:
-    // default color and fontsize params should come from the config object
     PixiConsole.prototype.print = function (message, color, fontSize) {
-        if (color === void 0) { color = 0xffffff; }
-        if (fontSize === void 0) { fontSize = 30; }
+        if (color === void 0) { color = -1; }
+        if (fontSize === void 0) { fontSize = -1; }
+        if (color === -1) {
+            color = this._config.defaultPrintColor;
+        }
+        if (fontSize === -1) {
+            fontSize = this._config.defaultPrintTextSize;
+        }
         var text = new PIXI.Text(message, {
             fill: color,
             fontSize: fontSize,
             wordWrap: true,
-            wordWrapWidth: this._config.consoleWidth - PixiConsole.TEXT_STARTING_X
+            wordWrapWidth: this._config.consoleWidth - PixiConsole.TEXT_STARTING_X,
         });
         var currentTextHeight = this._consoleContainer.children
             .map(function (textContainer) { return textContainer.height + PixiConsole.TEXT_Y_SPACING; })

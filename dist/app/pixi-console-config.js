@@ -11,7 +11,9 @@ var PixiConsoleConfig = /** @class */ (function () {
         this.attachConsoleLog = true;
         // customization
         this.consoleAlpha = 0.2;
-        this.backgroundColor = 0xfffff;
+        this.backgroundColor = 0xffffff;
+        this.defaultPrintColor = 0xffffff;
+        this.defaultPrintTextSize = 30;
     }
     return PixiConsoleConfig;
 }());

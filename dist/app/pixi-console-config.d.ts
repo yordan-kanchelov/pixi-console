@@ -7,4 +7,6 @@ export declare class PixiConsoleConfig {
     attachConsoleLog: boolean;
     consoleAlpha: number;
     backgroundColor: number;
+    defaultPrintColor: number;
+    defaultPrintTextSize: number;
 }
