@@ -148,7 +148,7 @@ export class PixiConsole extends PIXI.Container {
 
         if (this._config.attachConsoleLog) {
             console.log = function() {
-                this.printLog(...Array.from(arguments));
+                self.printLog(...Array.from(arguments));
 
                 return self._origConsoleLog.apply(this, arguments);
             };
