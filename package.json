@@ -14,7 +14,10 @@
     },
     "keywords": [
         "console",
-        "pixi.js"
+        "pixi.js",
+        "pixi",
+        "javascript",
+        "util"
     ],
     "author": "jkanchelov",
     "license": "ISC",
