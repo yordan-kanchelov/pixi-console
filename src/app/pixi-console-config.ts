@@ -10,5 +10,7 @@ export class PixiConsoleConfig {
 
     // customization
     consoleAlpha: number = 0.2;
-    backgroundColor: number = 0xfffff;
+    backgroundColor: number = 0xffffff;
+    defaultPrintColor: number = 0xffffff;
+    defaultPrintTextSize: number = 30;
 }

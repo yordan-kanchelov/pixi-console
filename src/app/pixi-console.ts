@@ -56,14 +56,20 @@ export class PixiConsole extends PIXI.Container {
         return this;
     }
 
-    // TODO:
-    // default color and fontsize params should come from the config object
-    print(message: string, color: number = 0xffffff, fontSize: number = 30): PixiConsole {
+    print(message: string, color: number = -1, fontSize: number = -1): PixiConsole {
+        if (color === -1) {
+            color = this._config.defaultPrintColor;
+        }
+
+        if (fontSize === -1) {
+            fontSize = this._config.defaultPrintTextSize;
+        }
+
         let text = new PIXI.Text(message, {
             fill: color,
             fontSize: fontSize,
             wordWrap: true,
-            wordWrapWidth: this._config.consoleWidth - PixiConsole.TEXT_STARTING_X
+            wordWrapWidth: this._config.consoleWidth - PixiConsole.TEXT_STARTING_X,
         });
 
         let currentTextHeight = this._consoleContainer.children
