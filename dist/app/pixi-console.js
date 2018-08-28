@@ -1,8 +1,11 @@
 "use strict";
 var __extends = (this && this.__extends) || (function () {
-    var extendStatics = Object.setPrototypeOf ||
-        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+    var extendStatics = function (d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    }
     return function (d, b) {
         extendStatics(d, b);
         function __() { this.constructor = d; }
@@ -61,6 +64,8 @@ var PixiConsole = /** @class */ (function (_super) {
         var currentTextHeight = this._consoleContainer.children
             .map(function (textContainer) { return textContainer.height + PixiConsole.TEXT_Y_SPACING; })
             .reduce(function (totalHeight, currentHeight) { return totalHeight + currentHeight; }, 0);
+        // TODO:
+        // unneeded container ?
         var textContainer = new PIXI.Container();
         textContainer.addChild(text);
         textContainer.x = PixiConsole.TEXT_STARTING_X;
@@ -117,7 +122,7 @@ var PixiConsole = /** @class */ (function (_super) {
         var self = this;
         if (this._config.attachConsoleLog) {
             console.log = function () {
-                this.printLog.apply(this, Array.from(arguments));
+                self.printLog.apply(self, Array.from(arguments));
                 return self._origConsoleLog.apply(this, arguments);
             };
         }
