@@ -76,6 +76,8 @@ export class PixiConsole extends PIXI.Container {
             .map(textContainer => (textContainer as PIXI.Container).height + PixiConsole.TEXT_Y_SPACING)
             .reduce((totalHeight, currentHeight) => totalHeight + currentHeight, 0);
 
+        // TODO:
+        // unneeded container ?
         let textContainer = new PIXI.Container();
         textContainer.addChild(text);
         textContainer.x = PixiConsole.TEXT_STARTING_X;
