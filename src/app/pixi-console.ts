@@ -1,13 +1,6 @@
 import { PixiConsoleConfig } from "./pixi-console-config";
 
 export class PixiConsole extends PIXI.Container {
-    // TODO:
-    // make those properties editable
-    private static readonly SCROLLING_Y_STEP = 40;
-    private static readonly TEXT_STARTING_X = 10;
-    private static readonly TEXT_STARTING_Y = 10;
-    private static readonly TEXT_Y_SPACING = 10;
-
     private static instance: PixiConsole;
 
     private _config: PixiConsoleConfig;
@@ -69,23 +62,23 @@ export class PixiConsole extends PIXI.Container {
             fill: color,
             fontSize: fontSize,
             wordWrap: true,
-            wordWrapWidth: this._config.consoleWidth - PixiConsole.TEXT_STARTING_X,
+            wordWrapWidth: this._config.consoleWidth - this._config.textStartingX,
         });
 
         let currentTextHeight = this._consoleContainer.children
-            .map(textContainer => (textContainer as PIXI.Container).height + PixiConsole.TEXT_Y_SPACING)
+            .map(textContainer => (textContainer as PIXI.Container).height + this._config.textYSpacing)
             .reduce((totalHeight, currentHeight) => totalHeight + currentHeight, 0);
 
         // TODO:
         // unneeded container ?
         let textContainer = new PIXI.Container();
         textContainer.addChild(text);
-        textContainer.x = PixiConsole.TEXT_STARTING_X;
-        textContainer.y = PixiConsole.TEXT_STARTING_Y + currentTextHeight;
+        textContainer.x = this._config.textStartingX;
+        textContainer.y = this._config.textStartingY + currentTextHeight;
 
         this._consoleContainer.addChild(textContainer);
 
-        if (PixiConsole.TEXT_STARTING_Y + currentTextHeight > this._config.consoleHeight) {
+        if (this._config.textStartingY + currentTextHeight > this._config.consoleHeight) {
             this._consoleContainer.y = -currentTextHeight;
         }
 
@@ -101,7 +94,7 @@ export class PixiConsole extends PIXI.Container {
         return this;
     }
 
-    scrollUp(timesScroll: number = 1, yStep: number = PixiConsole.SCROLLING_Y_STEP): PixiConsole {
+    scrollUp(timesScroll: number = 1, yStep: number = this._config.scrollingYStep): PixiConsole {
         if (this._consoleContainer.y < yStep) {
             this._consoleContainer.y += yStep * timesScroll;
         }
@@ -109,7 +102,7 @@ export class PixiConsole extends PIXI.Container {
         return this;
     }
 
-    scrollDown(timesScroll: number = 1, yStep: number = PixiConsole.SCROLLING_Y_STEP): PixiConsole {
+    scrollDown(timesScroll: number = 1, yStep: number = this._config.scrollingYStep): PixiConsole {
         this._consoleContainer.y -= yStep * timesScroll;
 
         return this;
