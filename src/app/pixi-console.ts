@@ -101,18 +101,16 @@ export class PixiConsole extends PIXI.Container {
         return this;
     }
 
-    // TODO:
-    // make scrollUP/Down functions pure
-    scrollUp(timesScroll: number = 1): PixiConsole {
-        if (this._consoleContainer.y < PixiConsole.SCROLLING_Y_STEP) {
-            this._consoleContainer.y += PixiConsole.SCROLLING_Y_STEP * timesScroll;
+    scrollUp(timesScroll: number = 1, yStep: number = PixiConsole.SCROLLING_Y_STEP): PixiConsole {
+        if (this._consoleContainer.y < yStep) {
+            this._consoleContainer.y += yStep * timesScroll;
         }
 
         return this;
     }
 
-    scrollDown(timesScroll: number = 1): PixiConsole {
-        this._consoleContainer.y -= PixiConsole.SCROLLING_Y_STEP * timesScroll;
+    scrollDown(timesScroll: number = 1, yStep: number = PixiConsole.SCROLLING_Y_STEP): PixiConsole {
+        this._consoleContainer.y -= yStep * timesScroll;
 
         return this;
     }
