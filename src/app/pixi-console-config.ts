@@ -12,7 +12,6 @@ export class PixiConsoleConfig {
     consoleAlpha: number = 0.2;
     backgroundColor: number = 0xffffff;
     defaultPrintColor: number = 0xffffff;
-    defaultPrintTextSize: number = 30;
 
     scrollingYStep = 40;
     textStartingX = 10;

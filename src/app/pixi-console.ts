@@ -48,7 +48,7 @@ export class PixiConsole extends PIXI.Container {
         }
 
         if (fontSize === -1) {
-            fontSize = this._config.defaultPrintTextSize;
+            fontSize = this._config.fontSize;
         }
 
         let text = new PIXI.Text(message, {
