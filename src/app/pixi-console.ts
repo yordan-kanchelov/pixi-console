@@ -62,14 +62,10 @@ export class PixiConsole extends PIXI.Container {
             .map(textContainer => (textContainer as PIXI.Container).height + this._config.textYSpacing)
             .reduce((totalHeight, currentHeight) => totalHeight + currentHeight, 0);
 
-        // TODO:
-        // unneeded container ?
-        let textContainer = new PIXI.Container();
-        textContainer.addChild(text);
-        textContainer.x = this._config.textStartingX;
-        textContainer.y = this._config.textStartingY + currentTextHeight;
+        text.x = this._config.textStartingX;
+        text.y = this._config.textStartingY + currentTextHeight;
 
-        this._consoleContainer.addChild(textContainer);
+        this._consoleContainer.addChild(text);
 
         if (this._config.textStartingY + currentTextHeight > this._config.consoleHeight) {
             this._consoleContainer.y = -currentTextHeight;
