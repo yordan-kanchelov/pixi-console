@@ -3,6 +3,14 @@ import { PixiConsoleConfig } from "./pixi-console-config";
 export class PixiConsole extends PIXI.Container {
     private static instance: PixiConsole;
 
+    static getInstance(): PixiConsole {
+        if (!this.instance) {
+            this.instance = new PixiConsole();
+        }
+
+        return PixiConsole.instance;
+    }
+
     private _config: PixiConsoleConfig;
     private _consoleContainer: PIXI.Container;
 
@@ -17,17 +25,9 @@ export class PixiConsole extends PIXI.Container {
         let defaultConfig = new PixiConsoleConfig();
         this._config = { ...defaultConfig, ...config };
 
-        this.init();
+        this._init();
         this.hide();
-        this.attachToConsole();
-    }
-
-    static getInstance(): PixiConsole {
-        if (!this.instance) {
-            this.instance = new PixiConsole();
-        }
-
-        return PixiConsole.instance;
+        this._attachToConsole();
     }
 
     show(): PixiConsole {
@@ -44,7 +44,7 @@ export class PixiConsole extends PIXI.Container {
 
     print(message: string, color: number = -1, fontSize: number = -1): PixiConsole {
         if (color === -1) {
-            color = this._config.defaultPrintColor;
+            color = this._config.fontColor;
         }
 
         if (fontSize === -1) {
@@ -97,7 +97,7 @@ export class PixiConsole extends PIXI.Container {
         return this;
     }
 
-    public dispose(): void {
+    dispose(): void {
         const self = this;
 
         console.log = function() {
@@ -109,7 +109,7 @@ export class PixiConsole extends PIXI.Container {
         };
     }
 
-    private init(): void {
+    private _init(): void {
         var background: PIXI.Graphics = new PIXI.Graphics();
         background.beginFill(this._config.backgroundColor, this._config.consoleAlpha);
         background.drawRect(0, 0, this._config.consoleWidth, this._config.consoleHeight);
@@ -121,14 +121,14 @@ export class PixiConsole extends PIXI.Container {
         this.addChild(this._consoleContainer);
     }
 
-    private attachToConsole(): void {
+    private _attachToConsole(): void {
         this._origConsoleLog = console.log;
         this._origConsoleError = console.error;
         let self = this;
 
         if (this._config.attachConsoleLog) {
             console.log = function() {
-                self.printLog(...Array.from(arguments));
+                self._printLog(...Array.from(arguments));
 
                 return self._origConsoleLog.apply(this, arguments);
             };
@@ -141,9 +141,9 @@ export class PixiConsole extends PIXI.Container {
                 }
 
                 if (e.error.stack) {
-                    this.printError(e.message + "\n\t" + e.error.stack.split("@").join("\n\t"));
+                    this._printError(e.message + "\n\t" + e.error.stack.split("@").join("\n\t"));
                 } else {
-                    this.printError(`Error at line - ${e.lineno}\n\t${e.message}\n\t${e.filename}\n\t`);
+                    this._printError(`Error at line - ${e.lineno}\n\t${e.message}\n\t${e.filename}\n\t`);
                 }
             });
 
@@ -158,13 +158,13 @@ export class PixiConsole extends PIXI.Container {
         }
     }
 
-    private printLog(...messages: string[]): void {
+    private _printLog(...messages: string[]): void {
         messages.forEach(message => {
-            this.print(message, 0xffffff, this._config.fontSize);
+            this.print(message, this._config.fontColor, this._config.fontSize);
         });
     }
 
-    private printError(message: string): void {
-        this.print(message, 0xff0000, this._config.fontSize);
+    private _printError(message: string): void {
+        this.print(message, this._config.fontErrorColor, this._config.fontSize);
     }
 }
