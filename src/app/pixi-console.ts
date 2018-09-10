@@ -140,11 +140,13 @@ export class PixiConsole extends PIXI.Container {
                     self.show();
                 }
 
+                let errorMessage = e.message;
+
                 if (e.error.stack) {
-                    this._printError(e.message + "\n\t" + e.error.stack.split("@").join("\n\t"));
-                } else {
-                    this._printError(`Error at line - ${e.lineno}\n\t${e.message}\n\t${e.filename}\n\t`);
+                    errorMessage += "\n\t" + e.error.stack.split("@").join("\n\t");
                 }
+
+                self._printError(errorMessage);
             });
 
             console.error = function() {
