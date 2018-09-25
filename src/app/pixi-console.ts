@@ -14,8 +14,8 @@ export class PixiConsole extends PIXI.Container {
     private _config: PixiConsoleConfig;
     private _consoleContainer: PIXI.Container;
 
-    private _origConsoleLog: Function;
-    private _origConsoleError: Function;
+    private _origConsoleLog: Function = console.log;
+    private _origConsoleError: Function = console.error;
 
     constructor(config?: PixiConsoleConfig) {
         super();
@@ -25,9 +25,11 @@ export class PixiConsole extends PIXI.Container {
         let defaultConfig = new PixiConsoleConfig();
         this._config = { ...defaultConfig, ...config };
 
+        this._consoleContainer = new PIXI.Container();
         this._init();
-        this.hide();
         this._attachToConsole();
+
+        this.hide();
     }
 
     show(): PixiConsole {
@@ -116,14 +118,10 @@ export class PixiConsole extends PIXI.Container {
         background.endFill();
         this.addChild(background);
 
-        this._consoleContainer = new PIXI.Container();
-
         this.addChild(this._consoleContainer);
     }
 
     private _attachToConsole(): void {
-        this._origConsoleLog = console.log;
-        this._origConsoleError = console.error;
         let self = this;
 
         if (this._config.attachConsoleLog) {
