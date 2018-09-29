@@ -1,4 +1,4 @@
-![](./img/example.png)
+![](https://github.com/jkanchelov/pixi-console/blob/master/img/example.png?raw=true)
 
 # Pixi-console
 
