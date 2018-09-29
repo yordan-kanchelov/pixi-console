@@ -156,7 +156,7 @@ export class PixiConsole extends PIXI.Container {
                     self.show();
                 }
 
-                this.error(arguments[0]);
+                self._printError(...Array.from(arguments));
                 return self._origConsoleError.apply(this, arguments);
             };
         }
@@ -168,7 +168,9 @@ export class PixiConsole extends PIXI.Container {
         });
     }
 
-    private _printError(message: string): void {
-        this.print(message, this._config.fontErrorColor, this._config.fontSize);
+    private _printError(...messages: string[]): void {
+        messages.forEach(message => {
+            this.print(message, this._config.fontErrorColor, this._config.fontSize);
+        });
     }
 }
