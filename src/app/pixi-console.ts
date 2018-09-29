@@ -32,6 +32,10 @@ export class PixiConsole extends PIXI.Container {
         this.hide();
     }
 
+    get isHidden(): boolean {
+        return this.visible;
+    }
+
     show(): PixiConsole {
         this.visible = true;
 
