@@ -36,6 +36,22 @@ export class PixiConsole extends PIXI.Container {
         return this.visible;
     }
 
+    set consoleWidth(width: number) {
+        this._config.consoleWidth = width;
+    }
+
+    set consoleHeight(height: number) {
+        this._config.consoleHeight = height;
+    }
+
+    set consoleAlpha(alpha: number) {
+        this._config.consoleAlpha = alpha;
+    }
+
+    updateConsoleConfig(config: PixiConsoleConfig | any) {
+        this._config = { ...this._config, ...config };
+    }
+
     show(): PixiConsole {
         this.visible = true;
 
