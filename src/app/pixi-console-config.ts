@@ -10,6 +10,7 @@ export class PixiConsoleConfig {
     showOnError: boolean = true;
     attachConsoleError: boolean = true;
     attachConsoleLog: boolean = true;
+    attachConsoleWarn: boolean = true;
 
     // customization
     consoleAlpha: number = 0.2;
