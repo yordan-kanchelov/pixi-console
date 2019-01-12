@@ -16,6 +16,7 @@ export class PixiConsole extends PIXI.Container {
 
     private _origConsoleLog: Function = console.log;
     private _origConsoleError: Function = console.error;
+    private _origConsoleWarn: Function = console.warn;
 
     constructor(config?: PixiConsoleConfig) {
         super();
@@ -129,6 +130,10 @@ export class PixiConsole extends PIXI.Container {
         console.error = function() {
             self._origConsoleLog.apply(this, arguments);
         };
+
+        console.warn = function() {
+            self._origConsoleWarn.apply(this, arguments);
+        }
     }
 
     private _init(): void {
@@ -150,6 +155,14 @@ export class PixiConsole extends PIXI.Container {
 
                 return self._origConsoleLog.apply(this, arguments);
             };
+        }
+
+        if (this._config.attachConsoleWarn) {
+            console.warn = function() {
+                self._printWarning(...Array.from(arguments)); 
+
+                return self._origConsoleWarn.apply(this, arguments);
+            }
         }
 
         if (this._config.attachConsoleError) {
@@ -187,6 +200,12 @@ export class PixiConsole extends PIXI.Container {
     private _printError(...messages: string[]): void {
         messages.forEach(message => {
             this.print(message, this._config.fontErrorColor, this._config.fontSize);
+        });
+    }
+
+    private _printWarning(...messages: string[]): void {
+        messages.forEach(message => {
+            this.print(message, this._config.fontWarningColor, this._config.fontSize);
         });
     }
 }
