@@ -128,7 +128,7 @@ export class PixiConsole extends PIXI.Container {
         };
 
         console.error = function() {
-            self._origConsoleLog.apply(this, arguments);
+            self._origConsoleError.apply(this, arguments);
         };
 
         console.warn = function() {
