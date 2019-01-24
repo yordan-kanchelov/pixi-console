@@ -1,6 +1,6 @@
 import PixiConsoleConfig from "./models/config";
 
-export class PixiConsole extends PIXI.Container {
+export default class PixiConsole extends PIXI.Container {
     private static instance: PixiConsole;
 
     static getInstance(): PixiConsole {
@@ -149,8 +149,9 @@ export class PixiConsole extends PIXI.Container {
     private _attachToConsole(): void {
         let self = this;
 
+        const eventsConfig = this._config.eventsConfig;
         ////
-        if (this._config.attachConsoleLog) {
+        if (eventsConfig.attachConsoleLog) {
             console.log = function() {
                 self._printLog(...Array.from(arguments));
 
@@ -158,7 +159,7 @@ export class PixiConsole extends PIXI.Container {
             };
         }
 
-        if (this._config.attachConsoleWarn) {
+        if (eventsConfig.attachConsoleWarn) {
             console.warn = function() {
                 self._printWarning(...Array.from(arguments));
 
@@ -167,9 +168,9 @@ export class PixiConsole extends PIXI.Container {
         }
         ////
 
-        if (this._config.attachConsoleError) {
+        if (eventsConfig.attachConsoleError) {
             window.addEventListener("error", e => {
-                if (self._config.showOnError) {
+                if (eventsConfig.showOnError) {
                     self.show();
                 }
 
@@ -183,7 +184,7 @@ export class PixiConsole extends PIXI.Container {
             });
 
             console.error = function() {
-                if (self._config.showOnError) {
+                if (eventsConfig.showOnError) {
                     self.show();
                 }
 
