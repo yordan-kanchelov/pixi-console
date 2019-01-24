@@ -16,7 +16,7 @@
         "util"
     ],
     "author": "jkanchelov",
-    "license": "ISC",
+    "license": "MIT",
     "bugs": {
         "url": "https://github.com/jkanchelov/pixi-console/issues"
     },
