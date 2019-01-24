@@ -1,4 +1,4 @@
-import { PixiConsoleConfig } from "./pixi-console-config";
+import PixiConsoleConfig from "./models/config";
 
 export class PixiConsole extends PIXI.Container {
     private static instance: PixiConsole;
