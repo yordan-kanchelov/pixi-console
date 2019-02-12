@@ -8,5 +8,12 @@
         "allowSyntheticDefaultImports": true,
         "suppressImplicitAnyIndexErrors": true,
         "esModuleInterop": true
+    },
+    "typedocOptions": {
+        "out": "docs",
+        "excludeProtected": true,
+        "excludePrivate": true,
+        "excludeExternals": true,
+        "enrtyPoint": "app/pixi-console"
     }
 }
