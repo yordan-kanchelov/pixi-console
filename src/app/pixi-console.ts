@@ -23,8 +23,22 @@ export default class PixiConsole extends PIXI.Container {
 
     private _onErrorEventAttached: boolean = false;
 
+    /**
+     * Pixi-console
+     *
+     * @param config provide PixiConsole settings.
+     * You can provide some of them and they will be merged with the defaults.
+     * If none the defaults will be used.
+     */
     constructor(config?: PixiConsoleConfig) {
         super();
+
+        if (PixiConsole.instance) {
+            throw new Error(
+                `PixiConsole has been initialized once. 
+                Use PixiConsole.getInstance() to work with it`,
+            );
+        }
 
         PixiConsole.instance = this;
 
