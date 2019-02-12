@@ -11,6 +11,7 @@
     },
     "typedocOptions": {
         "out": "docs",
+        "excludeNotExported": true,
         "excludeProtected": true,
         "excludePrivate": true,
         "excludeExternals": true,
