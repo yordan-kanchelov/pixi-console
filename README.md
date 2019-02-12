@@ -9,11 +9,11 @@ By default attaches itself to console log and error and will show itself if erro
 ## Table of Contents
 
 - [Pixi-console](#pixi-console)
-    - [Table of Contents](#table-of-contents)
-    - [Installation](#installation)
-    - [Usage](#usage)
-    - [Support](#support)
-    - [Contributing](#contributing)
+  - [Table of Contents](#table-of-contents)
+  - [Installation](#installation)
+  - [Usage](#usage)
+  - [Support](#support)
+  - [Contributing](#contributing)
 
 ## Installation
 
@@ -26,9 +26,17 @@ npm install pixi-console
 ```javascript
 import { PixiConsole, PixiConsoleConfig } from "pixi-console";
 
-const pixiConsole = new PixiConsole();
+const consoleConfig = new PixiConsoleConfig();
+consoleConfig.consoleWidth = 800;
+consoleConfig.consoleHeight = 600;
+
+const pixiConsole = new PixiConsole(consoleConfig);
 
 stage.addChild(pixiConsole);
+
+pixiConsole == PixiConsole.getInstance(); // true
+
+const secondConsole = new PixiConsole(consoleConfig); // Error - pixi console is designed with the singleton pattern only one instance is allowed
 ```
 
 ## Support
