@@ -1,4 +1,4 @@
-import { PixiConsole } from "./app/pixi-console";
-import { PixiConsoleConfig } from "./app/pixi-console-config";
+import PixiConsole from "./app/pixi-console";
+import PixiConsoleConfig from "./app/models/config";
 
 export { PixiConsole, PixiConsoleConfig };

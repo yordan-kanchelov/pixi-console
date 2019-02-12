@@ -6,6 +6,7 @@
         "outDir": "./dist",
         "strict": true,
         "allowSyntheticDefaultImports": true,
+        "suppressImplicitAnyIndexErrors": true,
         "esModuleInterop": true
     }
 }
