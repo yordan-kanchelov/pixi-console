@@ -1,7 +1,14 @@
 import PixiConsoleConfig from "./models/config";
+import PixiConsoleEventsConfig from "./models/events-config";
 
 export default class PixiConsole extends PIXI.Container {
     private static instance: PixiConsole;
+
+    private static readonly ORIG_CONSOLE_FUNCTIONS = {
+        log: console.log,
+        error: console.error,
+        warn: console.warn,
+    };
 
     static getInstance(): PixiConsole {
         if (!this.instance) {
@@ -14,9 +21,7 @@ export default class PixiConsole extends PIXI.Container {
     private _config: PixiConsoleConfig;
     private _consoleContainer: PIXI.Container;
 
-    private readonly _origConsoleLog: Function = console.log;
-    private readonly _origConsoleError: Function = console.error;
-    private readonly _origConsoleWarn: Function = console.warn;
+    private _onErrorEventAttached: boolean = false;
 
     constructor(config?: PixiConsoleConfig) {
         super();
@@ -26,9 +31,12 @@ export default class PixiConsole extends PIXI.Container {
         let defaultConfig = new PixiConsoleConfig();
         this._config = { ...defaultConfig, ...config };
 
+        this._createBackground();
+
         this._consoleContainer = new PIXI.Container();
-        this._init();
-        this._attachToConsole();
+        this.addChild(this._consoleContainer);
+
+        this._updateConsoleEvents();
 
         this.hide();
     }
@@ -49,8 +57,25 @@ export default class PixiConsole extends PIXI.Container {
         this._config.consoleAlpha = alpha;
     }
 
-    updateConsoleConfig(config: PixiConsoleConfig | any) {
-        this._config = { ...this._config, ...config };
+    get showOnError(): boolean {
+        return this._config.showOnError;
+    }
+
+    set showOnError(value: boolean) {
+        this._config.showOnError = value;
+    }
+
+    get eventsConfig(): PixiConsoleEventsConfig {
+        return this._config.eventsConfig;
+    }
+
+    /**
+     * Provide option to change dynamically which console functions PixiConsole would be attached to;
+     */
+    set eventsConfig(value: PixiConsoleEventsConfig) {
+        this._config.eventsConfig = { ...this._config.eventsConfig, ...value };
+
+        this._updateConsoleEvents();
     }
 
     show(): PixiConsole {
@@ -121,56 +146,39 @@ export default class PixiConsole extends PIXI.Container {
     }
 
     dispose(): void {
-        const self = this;
-
-        console.log = function() {
-            self._origConsoleLog.apply(this, arguments);
-        };
-
-        console.error = function() {
-            self._origConsoleLog.apply(this, arguments);
-        };
-
-        console.warn = function() {
-            self._origConsoleWarn.apply(this, arguments);
-        };
+        for (const consoleFunction in PixiConsole.ORIG_CONSOLE_FUNCTIONS) {
+            (console as any)[consoleFunction] = (PixiConsole.ORIG_CONSOLE_FUNCTIONS as any)[consoleFunction];
+        }
     }
 
-    private _init(): void {
+    private _createBackground(): void {
         var background: PIXI.Graphics = new PIXI.Graphics();
         background.beginFill(this._config.backgroundColor, this._config.consoleAlpha);
         background.drawRect(0, 0, this._config.consoleWidth, this._config.consoleHeight);
         background.endFill();
         this.addChild(background);
-
-        this.addChild(this._consoleContainer);
     }
 
-    private _attachToConsole(): void {
+    private _updateConsoleEvents(): void {
         let self = this;
 
         const eventsConfig = this._config.eventsConfig;
-        ////
-        if (eventsConfig.attachConsoleLog) {
-            console.log = function() {
-                self._printLog(...Array.from(arguments));
 
-                return self._origConsoleLog.apply(this, arguments);
-            };
+        for (const event in eventsConfig) {
+            if (eventsConfig[event]) {
+                console[event] = function() {
+                    self["_" + event](...Array.from(arguments));
+
+                    return PixiConsole.ORIG_CONSOLE_FUNCTIONS[event].apply(this, arguments);
+                };
+            } else {
+                console[event] = PixiConsole.ORIG_CONSOLE_FUNCTIONS[event];
+            }
         }
 
-        if (eventsConfig.attachConsoleWarn) {
-            console.warn = function() {
-                self._printWarning(...Array.from(arguments));
-
-                return self._origConsoleWarn.apply(this, arguments);
-            };
-        }
-        ////
-
-        if (eventsConfig.attachConsoleError) {
+        if (!this._onErrorEventAttached) {
             window.addEventListener("error", e => {
-                if (eventsConfig.showOnError) {
+                if (self._config.showOnError) {
                     self.show();
                 }
 
@@ -180,35 +188,26 @@ export default class PixiConsole extends PIXI.Container {
                     errorMessage += "\n\t" + e.error.stack.split("@").join("\n\t");
                 }
 
-                self._printError(errorMessage);
+                self._error(errorMessage);
             });
-
-            console.error = function() {
-                if (eventsConfig.showOnError) {
-                    self.show();
-                }
-
-                self._printError(...Array.from(arguments));
-                return self._origConsoleError.apply(this, arguments);
-            };
         }
     }
 
-    private _printLog(...messages: string[]): void {
+    private _log(...messages: string[]): void {
         messages.forEach(message => {
             this.print(message, this._config.fontColor, this._config.fontSize);
         });
     }
 
-    private _printError(...messages: string[]): void {
+    private _warn(...messages: string[]): void {
         messages.forEach(message => {
-            this.print(message, this._config.fontErrorColor, this._config.fontSize);
+            this.print(message, this._config.fontWarningColor, this._config.fontSize);
         });
     }
 
-    private _printWarning(...messages: string[]): void {
+    private _error(...messages: string[]): void {
         messages.forEach(message => {
-            this.print(message, this._config.fontWarningColor, this._config.fontSize);
+            this.print(message, this._config.fontErrorColor, this._config.fontSize);
         });
     }
 }

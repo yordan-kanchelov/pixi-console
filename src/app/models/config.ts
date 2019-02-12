@@ -10,6 +10,7 @@ export default class PixiConsoleConfig {
 
     // events options
     eventsConfig: EventsConfig = new EventsConfig();
+    showOnError: boolean = true;
 
     // customization
     consoleAlpha: number = 0.2;
