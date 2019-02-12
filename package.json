@@ -23,6 +23,7 @@
     "homepage": "https://github.com/jkanchelov/pixi-console#readme",
     "scripts": {
         "prepublish": "npm run build",
+        "docs": "npx typedoc ./src",
         "type-check": "tsc --noEmit",
         "type-check:watch": "npm run type-check -- --watch",
         "build": "npm run build:types && npm run build:js",
@@ -31,13 +32,14 @@
         "build:watch": "npm run build && babel src --out-dir dist --extensions \".ts,.tsx\" --source-maps inline --watch"
     },
     "devDependencies": {
-        "@types/pixi.js": "^4.7.5",
         "@babel/cli": "^7.0.0",
         "@babel/core": "^7.0.0",
         "@babel/plugin-proposal-class-properties": "^7.0.0",
         "@babel/plugin-proposal-object-rest-spread": "^7.0.0",
         "@babel/preset-env": "^7.0.0",
         "@babel/preset-typescript": "^7.0.0",
+        "@types/pixi.js": "^4.7.5",
         "typescript": "^3.0.3"
-    }
+    },
+    "dependencies": {}
 }
