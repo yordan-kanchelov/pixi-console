@@ -39,7 +39,7 @@ const secondConsole = new PixiConsole(consoleConfig); // Error PixiConsole is si
 pixiConsole == PixiConsole.getInstance(); // true
 ```
 
-## [Documentation](https://jkanchelov.github.io/pixi-console/)
+## [Documentation](https://jkanchelov.github.io/pixi-console/classes/pixiconsole.html)
 
 ## Support
 
