@@ -191,6 +191,8 @@ export default class PixiConsole extends PIXI.Container {
         }
 
         if (!this._onErrorEventAttached) {
+            this._onErrorEventAttached = true;
+            
             window.addEventListener("error", e => {
                 if (self._config.showOnError) {
                     self.show();
