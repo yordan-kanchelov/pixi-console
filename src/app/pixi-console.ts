@@ -1,3 +1,5 @@
+import { AllErrorHandler as ErrorListener } from "all-error-handler";
+
 import PixiConsoleConfig from "./models/config";
 import PixiConsoleEventsConfig from "./models/events-config";
 
@@ -21,14 +23,14 @@ export default class PixiConsole extends PIXI.Container {
     private _config: PixiConsoleConfig;
     private _consoleContainer: PIXI.Container;
 
-    private _onErrorEventAttached: boolean = false;
+    private _errorListener: ErrorListener;
 
     /**
      * Pixi-console
      *
-     * @param config provide PixiConsole settings.
+     * @param config PixiConsole settings.
      * You can provide some of them and they will be merged with the defaults.
-     * If none the defaults will be used.
+     * If none, the defaults will be used.
      */
     constructor(config?: PixiConsoleConfig) {
         super();
@@ -50,6 +52,7 @@ export default class PixiConsole extends PIXI.Container {
         this._consoleContainer = new PIXI.Container();
         this.addChild(this._consoleContainer);
 
+        this._setupErrorListener();
         this._updateConsoleEvents();
 
         this.hide();
@@ -163,6 +166,8 @@ export default class PixiConsole extends PIXI.Container {
         for (const consoleFunction in PixiConsole.ORIG_CONSOLE_FUNCTIONS) {
             (console as any)[consoleFunction] = (PixiConsole.ORIG_CONSOLE_FUNCTIONS as any)[consoleFunction];
         }
+
+        this._errorListener.dispose();
     }
 
     private _createBackground(): void {
@@ -171,6 +176,22 @@ export default class PixiConsole extends PIXI.Container {
         background.drawRect(0, 0, this._config.consoleWidth, this._config.consoleHeight);
         background.endFill();
         this.addChild(background);
+    }
+
+    private _setupErrorListener(): void {
+        this._errorListener = new ErrorListener(e => {
+            if (this._config.showOnError) {
+                this.show();
+            }
+
+            let errorMessage = e.message;
+
+            if (e.error.stack) {
+                errorMessage += "\n\t" + e.error.stack.split("@").join("\n\t");
+            }
+
+            this._error(errorMessage);
+        });
     }
 
     private _updateConsoleEvents(): void {
@@ -190,22 +211,10 @@ export default class PixiConsole extends PIXI.Container {
             }
         }
 
-        if (!this._onErrorEventAttached) {
-            this._onErrorEventAttached = true;
-            
-            window.addEventListener("error", e => {
-                if (self._config.showOnError) {
-                    self.show();
-                }
-
-                let errorMessage = e.message;
-
-                if (e.error.stack) {
-                    errorMessage += "\n\t" + e.error.stack.split("@").join("\n\t");
-                }
-
-                self._error(errorMessage);
-            });
+        if (eventsConfig.error) {
+            this._errorListener.startListening();
+        } else {
+            this._errorListener.stopListening();
         }
     }
 
