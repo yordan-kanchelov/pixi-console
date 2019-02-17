@@ -29,7 +29,8 @@
         "build": "npm run build:types && npm run build:js",
         "build:types": "tsc --emitDeclarationOnly",
         "build:js": "babel src --out-dir dist --extensions \".ts,.tsx\" --source-maps inline",
-        "build:watch": "npm run build && babel src --out-dir dist --extensions \".ts,.tsx\" --source-maps inline --watch"
+        "build:watch": "npm run build && babel src --out-dir dist --extensions \".ts,.tsx\" --source-maps inline --watch",
+        "pretty-check": "npx prettier -c ./src/**/*.ts "
     },
     "devDependencies": {
         "@babel/cli": "^7.0.0",
@@ -39,6 +40,7 @@
         "@babel/preset-env": "^7.0.0",
         "@babel/preset-typescript": "^7.0.0",
         "@types/pixi.js": "^4.7.5",
+        "prettier": "^1.16.4",
         "typescript": "^3.0.3"
     },
     "dependencies": {
