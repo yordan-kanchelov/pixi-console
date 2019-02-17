@@ -1,10 +1,12 @@
-![](https://github.com/jkanchelov/pixi-console/blob/master/img/example.png?raw=true)
+[![code style: prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg?style=flat-square)](https://github.com/prettier/prettier)
 
 # Pixi-console
 
 Console class for PIXI useful for developing mobile game.
 
 By default attaches itself to console log and error and will show itself if error is occurred.
+
+![](https://github.com/jkanchelov/pixi-console/blob/master/img/example.png?raw=true)
 
 ## Table of Contents
 
