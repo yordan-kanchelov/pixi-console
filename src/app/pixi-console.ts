@@ -38,7 +38,7 @@ export default class PixiConsole extends PIXI.Container {
         if (PixiConsole.instance) {
             throw new Error(
                 `PixiConsole has been initialized once. 
-                Use PixiConsole.getInstance() to work with it`,
+                Use PixiConsole.getInstance() to work with it`
             );
         }
 
@@ -108,15 +108,11 @@ export default class PixiConsole extends PIXI.Container {
         return this;
     }
 
-    print(message: string, color: number = -1, fontSize: number = -1): PixiConsole {
-        if (color === -1) {
-            color = this._config.fontColor;
-        }
-
-        if (fontSize === -1) {
-            fontSize = this._config.fontSize;
-        }
-
+    print(
+        message: string,
+        color: number = this._config.fontColor,
+        fontSize: number = this._config.fontSize
+    ): PixiConsole {
         let text = new PIXI.Text(message, {
             fill: color,
             fontSize: fontSize,
