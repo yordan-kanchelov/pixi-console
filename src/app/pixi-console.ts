@@ -20,6 +20,7 @@ export default class PixiConsole extends PIXI.Container {
         return PixiConsole.instance;
     }
 
+    private _background: PIXI.Graphics;
     private _config: PixiConsoleConfig;
     private _consoleContainer: PIXI.Container;
 
@@ -48,7 +49,7 @@ export default class PixiConsole extends PIXI.Container {
         this._config = { ...defaultConfig, ...config };
         this._config.eventsConfig = { ...defaultConfig.eventsConfig, ...config.eventsConfig };
 
-        this._createBackground();
+        this._updateBackground();
 
         this._consoleContainer = new PIXI.Container();
         this.addChild(this._consoleContainer);
@@ -63,16 +64,33 @@ export default class PixiConsole extends PIXI.Container {
         return this.visible;
     }
 
+    get consoleWidth(): number {
+        return this._config.consoleWidth;
+    }
+
     set consoleWidth(width: number) {
         this._config.consoleWidth = width;
+
+        this._updateBackground();
+    }
+
+    get consoleHeight(): number {
+        return this._config.consoleHeight;
     }
 
     set consoleHeight(height: number) {
         this._config.consoleHeight = height;
+
+        this._updateBackground();
     }
 
-    set consoleAlpha(alpha: number) {
-        this._config.consoleAlpha = alpha;
+    get backgroundAlpha(): number {
+        return this._config.backgroundAlpha;
+    }
+
+    set backgroundAlpha(alpha: number) {
+        this._config.backgroundAlpha = alpha;
+        this._background.alpha = alpha;
     }
 
     get showOnError(): boolean {
@@ -81,6 +99,20 @@ export default class PixiConsole extends PIXI.Container {
 
     set showOnError(value: boolean) {
         this._config.showOnError = value;
+    }
+
+    get consoleConfig(): PixiConsoleConfig {
+        return this._config;
+    }
+
+    set consoleConfig(config: PixiConsoleConfig) {
+        this._config = { ...this._config, ...config };
+
+        if (config.eventsConfig) {
+            this._config.eventsConfig = { ...this._config.eventsConfig, ...config.eventsConfig };
+        }
+
+        this._updateBackground();
     }
 
     get eventsConfig(): PixiConsoleEventsConfig {
@@ -167,12 +199,18 @@ export default class PixiConsole extends PIXI.Container {
         this._errorListener.dispose();
     }
 
-    private _createBackground(): void {
-        var background: PIXI.Graphics = new PIXI.Graphics();
-        background.beginFill(this._config.backgroundColor, this._config.consoleAlpha);
-        background.drawRect(0, 0, this._config.consoleWidth, this._config.consoleHeight);
-        background.endFill();
-        this.addChild(background);
+    private _updateBackground(): void {
+        if (this._background) {
+            this.removeChildAt(0);
+        }
+
+        this._background = new PIXI.Graphics();
+        this._background.beginFill(this._config.backgroundColor, 1);
+        this._background.drawRect(0, 0, this._config.consoleWidth, this._config.consoleHeight);
+        this._background.endFill();
+        this._background.alpha = this._config.backgroundAlpha;
+
+        this.addChildAt(this._background, 0);
     }
 
     private _setupErrorListener(): void {
