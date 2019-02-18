@@ -90,9 +90,10 @@
 						<section class="tsd-index-section ">
 							<h3>Accessors</h3>
 							<ul class="tsd-index-list">
-								<li class="tsd-kind-set-signature tsd-parent-kind-class"><a href="pixiconsole.html#consolealpha" class="tsd-kind-icon">console<wbr>Alpha</a></li>
-								<li class="tsd-kind-set-signature tsd-parent-kind-class"><a href="pixiconsole.html#consoleheight" class="tsd-kind-icon">console<wbr>Height</a></li>
-								<li class="tsd-kind-set-signature tsd-parent-kind-class"><a href="pixiconsole.html#consolewidth" class="tsd-kind-icon">console<wbr>Width</a></li>
+								<li class="tsd-kind-accessor tsd-parent-kind-class"><a href="pixiconsole.html#backgroundalpha" class="tsd-kind-icon">background<wbr>Alpha</a></li>
+								<li class="tsd-kind-accessor tsd-parent-kind-class"><a href="pixiconsole.html#consoleconfig" class="tsd-kind-icon">console<wbr>Config</a></li>
+								<li class="tsd-kind-accessor tsd-parent-kind-class"><a href="pixiconsole.html#consoleheight" class="tsd-kind-icon">console<wbr>Height</a></li>
+								<li class="tsd-kind-accessor tsd-parent-kind-class"><a href="pixiconsole.html#consolewidth" class="tsd-kind-icon">console<wbr>Width</a></li>
 								<li class="tsd-kind-accessor tsd-parent-kind-class"><a href="pixiconsole.html#eventsconfig" class="tsd-kind-icon">events<wbr>Config</a></li>
 								<li class="tsd-kind-get-signature tsd-parent-kind-class"><a href="pixiconsole.html#ishidden" class="tsd-kind-icon">is<wbr>Hidden</a></li>
 								<li class="tsd-kind-accessor tsd-parent-kind-class"><a href="pixiconsole.html#showonerror" class="tsd-kind-icon">show<wbr>OnError</a></li>
@@ -126,7 +127,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/c054718/src/app/pixi-console.ts#L26">app/pixi-console.ts:26</a></li>
+									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/374ae66/src/app/pixi-console.ts#L27">app/pixi-console.ts:27</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -154,17 +155,26 @@
 			</section>
 			<section class="tsd-panel-group tsd-member-group ">
 				<h2>Accessors</h2>
-				<section class="tsd-panel tsd-member tsd-kind-set-signature tsd-parent-kind-class">
-					<a name="consolealpha" class="tsd-anchor"></a>
-					<h3>console<wbr>Alpha</h3>
-					<ul class="tsd-signatures tsd-kind-set-signature tsd-parent-kind-class">
-						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">set</span> consoleAlpha<span class="tsd-signature-symbol">(</span>alpha<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+				<section class="tsd-panel tsd-member tsd-kind-accessor tsd-parent-kind-class">
+					<a name="backgroundalpha" class="tsd-anchor"></a>
+					<h3>background<wbr>Alpha</h3>
+					<ul class="tsd-signatures tsd-kind-accessor tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> backgroundAlpha<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span></li>
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">set</span> backgroundAlpha<span class="tsd-signature-symbol">(</span>alpha<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/c054718/src/app/pixi-console.ts#L74">app/pixi-console.ts:74</a></li>
+									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/374ae66/src/app/pixi-console.ts#L87">app/pixi-console.ts:87</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4>
+						</li>
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/374ae66/src/app/pixi-console.ts#L91">app/pixi-console.ts:91</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -177,17 +187,58 @@
 						</li>
 					</ul>
 				</section>
-				<section class="tsd-panel tsd-member tsd-kind-set-signature tsd-parent-kind-class">
+				<section class="tsd-panel tsd-member tsd-kind-accessor tsd-parent-kind-class">
+					<a name="consoleconfig" class="tsd-anchor"></a>
+					<h3>console<wbr>Config</h3>
+					<ul class="tsd-signatures tsd-kind-accessor tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> consoleConfig<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="pixiconsoleconfig.html" class="tsd-signature-type">PixiConsoleConfig</a></li>
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">set</span> consoleConfig<span class="tsd-signature-symbol">(</span>config<span class="tsd-signature-symbol">: </span><a href="pixiconsoleconfig.html" class="tsd-signature-type">PixiConsoleConfig</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/374ae66/src/app/pixi-console.ts#L104">app/pixi-console.ts:104</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-returns-title">Returns <a href="pixiconsoleconfig.html" class="tsd-signature-type">PixiConsoleConfig</a></h4>
+						</li>
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/374ae66/src/app/pixi-console.ts#L108">app/pixi-console.ts:108</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>config: <a href="pixiconsoleconfig.html" class="tsd-signature-type">PixiConsoleConfig</a></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-accessor tsd-parent-kind-class">
 					<a name="consoleheight" class="tsd-anchor"></a>
 					<h3>console<wbr>Height</h3>
-					<ul class="tsd-signatures tsd-kind-set-signature tsd-parent-kind-class">
+					<ul class="tsd-signatures tsd-kind-accessor tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> consoleHeight<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span></li>
 						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">set</span> consoleHeight<span class="tsd-signature-symbol">(</span>height<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/c054718/src/app/pixi-console.ts#L70">app/pixi-console.ts:70</a></li>
+									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/374ae66/src/app/pixi-console.ts#L77">app/pixi-console.ts:77</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4>
+						</li>
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/374ae66/src/app/pixi-console.ts#L81">app/pixi-console.ts:81</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -200,17 +251,26 @@
 						</li>
 					</ul>
 				</section>
-				<section class="tsd-panel tsd-member tsd-kind-set-signature tsd-parent-kind-class">
+				<section class="tsd-panel tsd-member tsd-kind-accessor tsd-parent-kind-class">
 					<a name="consolewidth" class="tsd-anchor"></a>
 					<h3>console<wbr>Width</h3>
-					<ul class="tsd-signatures tsd-kind-set-signature tsd-parent-kind-class">
+					<ul class="tsd-signatures tsd-kind-accessor tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">get</span> consoleWidth<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span></li>
 						<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">set</span> consoleWidth<span class="tsd-signature-symbol">(</span>width<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/c054718/src/app/pixi-console.ts#L66">app/pixi-console.ts:66</a></li>
+									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/374ae66/src/app/pixi-console.ts#L67">app/pixi-console.ts:67</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4>
+						</li>
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/374ae66/src/app/pixi-console.ts#L71">app/pixi-console.ts:71</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -234,7 +294,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/c054718/src/app/pixi-console.ts#L86">app/pixi-console.ts:86</a></li>
+									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/374ae66/src/app/pixi-console.ts#L118">app/pixi-console.ts:118</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -247,7 +307,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/c054718/src/app/pixi-console.ts#L93">app/pixi-console.ts:93</a></li>
+									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/374ae66/src/app/pixi-console.ts#L125">app/pixi-console.ts:125</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -275,7 +335,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/c054718/src/app/pixi-console.ts#L62">app/pixi-console.ts:62</a></li>
+									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/374ae66/src/app/pixi-console.ts#L63">app/pixi-console.ts:63</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4>
@@ -293,7 +353,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/c054718/src/app/pixi-console.ts#L78">app/pixi-console.ts:78</a></li>
+									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/374ae66/src/app/pixi-console.ts#L96">app/pixi-console.ts:96</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4>
@@ -301,7 +361,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/c054718/src/app/pixi-console.ts#L82">app/pixi-console.ts:82</a></li>
+									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/374ae66/src/app/pixi-console.ts#L100">app/pixi-console.ts:100</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -327,7 +387,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/c054718/src/app/pixi-console.ts#L143">app/pixi-console.ts:143</a></li>
+									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/374ae66/src/app/pixi-console.ts#L171">app/pixi-console.ts:171</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-returns-title">Returns <a href="pixiconsole.html" class="tsd-signature-type">PixiConsole</a></h4>
@@ -344,7 +404,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/c054718/src/app/pixi-console.ts#L166">app/pixi-console.ts:166</a></li>
+									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/374ae66/src/app/pixi-console.ts#L194">app/pixi-console.ts:194</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
@@ -361,7 +421,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/c054718/src/app/pixi-console.ts#L105">app/pixi-console.ts:105</a></li>
+									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/374ae66/src/app/pixi-console.ts#L137">app/pixi-console.ts:137</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-returns-title">Returns <a href="pixiconsole.html" class="tsd-signature-type">PixiConsole</a></h4>
@@ -378,7 +438,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/c054718/src/app/pixi-console.ts#L111">app/pixi-console.ts:111</a></li>
+									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/374ae66/src/app/pixi-console.ts#L143">app/pixi-console.ts:143</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -387,10 +447,10 @@
 									<h5>message: <span class="tsd-signature-type">string</span></h5>
 								</li>
 								<li>
-									<h5><span class="tsd-flag ts-flagDefault value">Default value</span> color: <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> =&nbsp;-1</span></h5>
+									<h5><span class="tsd-flag ts-flagDefault value">Default value</span> color: <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> =&nbsp;this._config.fontColor</span></h5>
 								</li>
 								<li>
-									<h5><span class="tsd-flag ts-flagDefault value">Default value</span> fontSize: <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> =&nbsp;-1</span></h5>
+									<h5><span class="tsd-flag ts-flagDefault value">Default value</span> fontSize: <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> =&nbsp;this._config.fontSize</span></h5>
 								</li>
 							</ul>
 							<h4 class="tsd-returns-title">Returns <a href="pixiconsole.html" class="tsd-signature-type">PixiConsole</a></h4>
@@ -407,7 +467,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/c054718/src/app/pixi-console.ts#L160">app/pixi-console.ts:160</a></li>
+									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/374ae66/src/app/pixi-console.ts#L188">app/pixi-console.ts:188</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -433,7 +493,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/c054718/src/app/pixi-console.ts#L152">app/pixi-console.ts:152</a></li>
+									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/374ae66/src/app/pixi-console.ts#L180">app/pixi-console.ts:180</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -459,7 +519,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/c054718/src/app/pixi-console.ts#L99">app/pixi-console.ts:99</a></li>
+									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/374ae66/src/app/pixi-console.ts#L131">app/pixi-console.ts:131</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-returns-title">Returns <a href="pixiconsole.html" class="tsd-signature-type">PixiConsole</a></h4>
@@ -476,7 +536,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/c054718/src/app/pixi-console.ts#L15">app/pixi-console.ts:15</a></li>
+									<li>Defined in <a href="https://github.com/jkanchelov/pixi-console/blob/374ae66/src/app/pixi-console.ts#L15">app/pixi-console.ts:15</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-returns-title">Returns <a href="pixiconsole.html" class="tsd-signature-type">PixiConsole</a></h4>
@@ -503,13 +563,16 @@
 							<li class=" tsd-kind-constructor tsd-parent-kind-class">
 								<a href="pixiconsole.html#constructor" class="tsd-kind-icon">constructor</a>
 							</li>
-							<li class=" tsd-kind-set-signature tsd-parent-kind-class">
-								<a href="pixiconsole.html#consolealpha" class="tsd-kind-icon">console<wbr>Alpha</a>
+							<li class=" tsd-kind-accessor tsd-parent-kind-class">
+								<a href="pixiconsole.html#backgroundalpha" class="tsd-kind-icon">background<wbr>Alpha</a>
 							</li>
-							<li class=" tsd-kind-set-signature tsd-parent-kind-class">
+							<li class=" tsd-kind-accessor tsd-parent-kind-class">
+								<a href="pixiconsole.html#consoleconfig" class="tsd-kind-icon">console<wbr>Config</a>
+							</li>
+							<li class=" tsd-kind-accessor tsd-parent-kind-class">
 								<a href="pixiconsole.html#consoleheight" class="tsd-kind-icon">console<wbr>Height</a>
 							</li>
-							<li class=" tsd-kind-set-signature tsd-parent-kind-class">
+							<li class=" tsd-kind-accessor tsd-parent-kind-class">
 								<a href="pixiconsole.html#consolewidth" class="tsd-kind-icon">console<wbr>Width</a>
 							</li>
 							<li class=" tsd-kind-accessor tsd-parent-kind-class">
