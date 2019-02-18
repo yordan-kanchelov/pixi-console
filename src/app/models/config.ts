@@ -13,7 +13,7 @@ export default class PixiConsoleConfig {
     showOnError: boolean = true;
 
     // customization
-    consoleAlpha: number = 0.2;
+    backgroundAlpha: number = 0.2;
     backgroundColor: number = 0xffffff;
 
     scrollingYStep = 40;
