@@ -48,7 +48,7 @@ export default class PixiConsole extends PIXI.Container {
         let defaultConfig = new PixiConsoleConfig();
         this._config = { ...defaultConfig, ...config };
 
-        if (config.eventsConfig) {
+        if (config && config.eventsConfig) {
             this._config.eventsConfig = { ...defaultConfig.eventsConfig, ...config.eventsConfig };
         }
 
