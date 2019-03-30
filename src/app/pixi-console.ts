@@ -164,7 +164,10 @@ export default class PixiConsole extends PIXI.Container {
 
         this._consoleContainer.addChild(text);
 
-        if (this._config.textStartingY + totalTextsHeight + text.height > this._config.consoleHeight) {
+        const timesCoveredScreen = Math.floor(-this._consoleContainer.y / this._config.consoleHeight) + 1;
+        const updatedTotalTextsHeight = this._config.textStartingY + totalTextsHeight + text.height;
+
+        if (updatedTotalTextsHeight > this._config.consoleHeight * timesCoveredScreen) {
             this._consoleContainer.y = -totalTextsHeight;
         }
 
