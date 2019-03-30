@@ -155,17 +155,20 @@ export default class PixiConsole extends PIXI.Container {
             wordWrapWidth: this._config.consoleWidth - this._config.textStartingX,
         });
 
-        let currentTextHeight = this._consoleContainer.children
+        let totalTextsHeight = this._consoleContainer.children
             .map(textContainer => (textContainer as PIXI.Container).height + this._config.textYSpacing)
             .reduce((totalHeight, currentHeight) => totalHeight + currentHeight, 0);
 
         text.x = this._config.textStartingX;
-        text.y = this._config.textStartingY + currentTextHeight;
+        text.y = this._config.textStartingY + totalTextsHeight;
 
         this._consoleContainer.addChild(text);
 
-        if (this._config.textStartingY + currentTextHeight > this._config.consoleHeight) {
-            this._consoleContainer.y = -currentTextHeight;
+        const timesCoveredScreen = Math.floor(-this._consoleContainer.y / this._config.consoleHeight) + 1;
+        const updatedTotalTextsHeight = this._config.textStartingY + totalTextsHeight + text.height;
+
+        if (updatedTotalTextsHeight > this._config.consoleHeight * timesCoveredScreen) {
+            this._consoleContainer.y = -totalTextsHeight;
         }
 
         return this;
