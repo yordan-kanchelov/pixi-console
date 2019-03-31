@@ -14,7 +14,7 @@ export default class PixiConsoleConfig {
 
     // customization
     backgroundAlpha: number = 0.2;
-    backgroundColor: number = 0xffffff;
+    backgroundColor: number = 0x000000;
 
     scrollingYStep = 40;
     textStartingX = 10;
