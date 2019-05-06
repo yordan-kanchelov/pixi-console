@@ -1,3 +1,4 @@
+import * as PIXI from "pixi.js";
 import { AllErrorHandler as ErrorListener } from "all-error-handler";
 
 import PixiConsoleConfig from "./models/config";
