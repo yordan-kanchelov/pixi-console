@@ -23,6 +23,9 @@ By default attaches itself to console log and error and will show itself if erro
 ```javascript
 npm install pixi-console
 ```
+- If you want > pixi.js 5.0.0 support go with pixi-console 3.0.0 or greater version
+- For backward compatibility ( pixi.js v4.0.0 ) go with pixi-console 2.5.0 or greater version 
+
 
 ## Usage
 
