@@ -5,6 +5,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.1] - 11.05.2019
+- Update README.md with more information about versioning and pixi.js compatibility
+ 
 ## [3.0.0] - 11.05.2019
 ### Changed 
 - Pixi.js v5 is now supported. 
