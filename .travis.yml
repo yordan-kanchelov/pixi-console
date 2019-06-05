@@ -1,0 +1,17 @@
+sudo: false
+
+branches:
+  only:
+  - master
+  - develop
+
+language: node_js
+node_js:
+  - "node"
+
+script: npm run build
+
+os: 
+  - windows
+  - linux
+  - osx
