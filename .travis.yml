@@ -9,4 +9,9 @@ language: node_js
 node_js:
   - "node"
 
-script: build
+script: npm run build
+
+os: 
+  - windows
+  - linux
+  - osx
