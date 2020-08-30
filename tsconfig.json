@@ -1,11 +1,10 @@
 {
     "compilerOptions": {
-        "target": "esnext",
-        "module": "commonjs",
+        "target": "ESNext",
+        "module": "CommonJS",
         "declaration": true,
         "outDir": "./dist",
         "allowSyntheticDefaultImports": true,
-        "suppressImplicitAnyIndexErrors": true,
         "esModuleInterop": true
     },
     "typedocOptions": {

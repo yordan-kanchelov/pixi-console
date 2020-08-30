@@ -1,8 +1,8 @@
 import * as PIXI from "pixi.js";
-import { AllErrorHandler as ErrorListener } from "all-error-handler";
 
 import PixiConsoleConfig from "./models/config";
 import PixiConsoleEventsConfig from "./models/events-config";
+import ErrorListener from "./utils/error-listener";
 
 export default class PixiConsole extends PIXI.Container {
     private static instance: PixiConsole;
@@ -39,7 +39,7 @@ export default class PixiConsole extends PIXI.Container {
 
         if (PixiConsole.instance) {
             throw new Error(
-                `PixiConsole has been initialized once. 
+                `PixiConsole has been initialized once.
                 Use PixiConsole.getInstance() to work with it`
             );
         }
@@ -157,7 +157,7 @@ export default class PixiConsole extends PIXI.Container {
         });
 
         let totalTextsHeight = this._consoleContainer.children
-            .map(textContainer => (textContainer as PIXI.Container).height + this._config.textYSpacing)
+            .map((textContainer) => (textContainer as PIXI.Container).height + this._config.textYSpacing)
             .reduce((totalHeight, currentHeight) => totalHeight + currentHeight, 0);
 
         text.x = this._config.textStartingX;
@@ -221,7 +221,7 @@ export default class PixiConsole extends PIXI.Container {
     }
 
     private _setupErrorListener(): void {
-        this._errorListener = new ErrorListener(e => {
+        this._errorListener = new ErrorListener((e) => {
             if (this._config.showOnError) {
                 this.show();
             }
@@ -243,7 +243,7 @@ export default class PixiConsole extends PIXI.Container {
 
         for (const event in eventsConfig) {
             if (eventsConfig[event]) {
-                console[event] = function() {
+                console[event] = function () {
                     self["_" + event](...Array.from(arguments));
 
                     return PixiConsole.ORIG_CONSOLE_FUNCTIONS[event].apply(this, arguments);
@@ -261,19 +261,19 @@ export default class PixiConsole extends PIXI.Container {
     }
 
     private _log(...messages: string[]): void {
-        messages.forEach(message => {
+        messages.forEach((message) => {
             this.print(message, this._config.fontColor, this._config.fontSize);
         });
     }
 
     private _warn(...messages: string[]): void {
-        messages.forEach(message => {
+        messages.forEach((message) => {
             this.print(message, this._config.fontWarningColor, this._config.fontSize);
         });
     }
 
     private _error(...messages: string[]): void {
-        messages.forEach(message => {
+        messages.forEach((message) => {
             this.print(message, this._config.fontErrorColor, this._config.fontSize);
         });
     }
