@@ -3,6 +3,7 @@ import * as PIXI from "pixi.js";
 import PixiConsoleConfig from "./models/config";
 import PixiConsoleEventsConfig from "./models/events-config";
 import ErrorListener from "./utils/error-listener";
+import oneDepth from "./utils/one-depth";
 
 export default class PixiConsole extends PIXI.Container {
     private static instance: PixiConsole;
@@ -246,7 +247,7 @@ export default class PixiConsole extends PIXI.Container {
                 console[event] = function () {
                     self["_" + event](...Array.from(arguments));
 
-                    return PixiConsole.ORIG_CONSOLE_FUNCTIONS[event].apply(this, arguments);
+                    return PixiConsole.ORIG_CONSOLE_FUNCTIONS[event].apply(console, arguments);
                 };
             } else {
                 console[event] = PixiConsole.ORIG_CONSOLE_FUNCTIONS[event];
@@ -284,14 +285,24 @@ export default class PixiConsole extends PIXI.Container {
     private messageBuilder(message: any): string {
         let finalMesage: string = "";
 
-        if (this._config.sourceMap) {
-            finalMesage += "(" + this.lineGuesser() + ")";
+        if (this._config.showCaller) {
+            finalMesage += this.lineGuesser() + " ";
         }
 
-        if (this._config.stringifyObjects && typeof message != "string") {
-            finalMesage += message.constructor.name + " ► " + JSON.stringify(message);
+        if (this._config.stringifyObjects && typeof message == "object") {
+            let serializedMessage: string;
+            try {
+                serializedMessage = JSON.stringify(message);
+            } catch (error) {
+                serializedMessage = JSON.stringify(message, oneDepth);
+            }
+            finalMesage += message.constructor.name + " " + serializedMessage;
         } else {
-            finalMesage += message;
+            if (message == "[object Object]" && message.constructor) {
+                finalMesage += "[object " + message.constructor.name + "]";
+            } else {
+                finalMesage += message;
+            }
         }
         return finalMesage;
     }
@@ -300,7 +311,7 @@ export default class PixiConsole extends PIXI.Container {
         // stolen from some god forsaken place in https://what.thedailywtf.com/topic/17379/make-console-log-log-current-line/2
         const err = new Error();
         if (err.stack) {
-            const caller_line = err.stack.split("\n")[5]; //5 here is because: 1 is lineGuesser, 2 is messageBuilder,3 is foreach, 4 is _log and 5 is the actual line that tried to log.
+            const caller_line = err.stack.split("\n")[7]; //reasoning this was 5 in my head, but 6 is the number that works
             const index = caller_line.indexOf("at ");
             const clean = caller_line.slice(index + 2, caller_line.length);
             return clean;

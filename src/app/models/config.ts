@@ -8,7 +8,7 @@ export default class PixiConsoleConfig {
     fontErrorColor: number = 0xff0000;
     fontWarningColor: number = 0xf0e68c;
     stringifyObjects: boolean = false;
-    sourceMap: boolean = false;
+    showCaller: boolean = false;
 
     // events options
     eventsConfig: EventsConfig = new EventsConfig();
