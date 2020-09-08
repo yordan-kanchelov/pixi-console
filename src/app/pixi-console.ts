@@ -260,21 +260,51 @@ export default class PixiConsole extends PIXI.Container {
         }
     }
 
-    private _log(...messages: string[]): void {
+    private _log(...messages: any[]): void {
         messages.forEach((message) => {
-            this.print(message, this._config.fontColor, this._config.fontSize);
+            const finalMesage: string = this.messageBuilder(message);
+            this.print(finalMesage, this._config.fontColor, this._config.fontSize);
         });
     }
 
-    private _warn(...messages: string[]): void {
+    private _warn(...messages: any[]): void {
         messages.forEach((message) => {
-            this.print(message, this._config.fontWarningColor, this._config.fontSize);
+            const finalMesage: string = this.messageBuilder(message);
+            this.print(finalMesage, this._config.fontWarningColor, this._config.fontSize);
         });
     }
 
-    private _error(...messages: string[]): void {
+    private _error(...messages: any[]): void {
         messages.forEach((message) => {
-            this.print(message, this._config.fontErrorColor, this._config.fontSize);
+            const finalMesage: string = this.messageBuilder(message);
+            this.print(finalMesage, this._config.fontErrorColor, this._config.fontSize);
         });
+    }
+
+    private messageBuilder(message: any): string {
+        let finalMesage: string = "";
+
+        if (this._config.sourceMap) {
+            finalMesage += "(" + this.lineGuesser() + ")";
+        }
+
+        if (this._config.stringifyObjects && typeof message != "string") {
+            finalMesage += message.constructor.name + " ► " + JSON.stringify(message);
+        } else {
+            finalMesage += message;
+        }
+        return finalMesage;
+    }
+
+    private lineGuesser(): string {
+        // stolen from some god forsaken place in https://what.thedailywtf.com/topic/17379/make-console-log-log-current-line/2
+        const err = new Error();
+        if (err.stack) {
+            const caller_line = err.stack.split("\n")[5]; //5 here is because: 1 is lineGuesser, 2 is messageBuilder,3 is foreach, 4 is _log and 5 is the actual line that tried to log.
+            const index = caller_line.indexOf("at ");
+            const clean = caller_line.slice(index + 2, caller_line.length);
+            return clean;
+        }
+        return "";
     }
 }
