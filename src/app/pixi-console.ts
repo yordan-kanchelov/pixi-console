@@ -311,7 +311,7 @@ export default class PixiConsole extends PIXI.Container {
         // stolen from some god forsaken place in https://what.thedailywtf.com/topic/17379/make-console-log-log-current-line/2
         const err = new Error();
         if (err.stack) {
-            const caller_line = err.stack.split("\n")[7]; //reasoning this was 5 in my head, but 6 is the number that works
+            const caller_line = err.stack.split("\n")[7];
             const index = caller_line.indexOf("at ");
             const clean = caller_line.slice(index + 2, caller_line.length);
             return clean;
