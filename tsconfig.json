@@ -1,19 +1,17 @@
 {
-    "compilerOptions": {
-        "target": "ESNext",
-        "module": "CommonJS",
-        "declaration": true,
-        "outDir": "./dist",
-        "allowSyntheticDefaultImports": true,
-        "esModuleInterop": true
-    },
-    "typedocOptions": {
-        "mode": "file",
-        "out": "docs",
-        "target": "es6",
-        "excludeProtected": true,
-        "excludePrivate": true,
-        "excludeExternals": true,
-        "ignoreCompilerErrors": true
-    }
+  "compilerOptions": {
+    "moduleResolution": "node",
+    "target": "es5",
+    "module": "ESNext",
+    "strict": true,
+    "sourceMap": true,
+    "declaration": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "declarationDir": "dist/types",
+    "outDir": "dist/lib",
+  },
+  "include": [
+    "src"
+  ]
 }

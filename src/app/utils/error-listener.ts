@@ -1,39 +1,37 @@
 export default class ErrorListener {
-    private callback: (e) => void;
-    private listening: boolean = false;
+    private callback?: (e: ErrorEvent) => void;
+    private listening = false;
 
     /**
      *
      */
-    constructor(callback) {
+    constructor(callback: (e: ErrorEvent) => void) {
         this.callback = callback;
 
         this.startListening();
     }
 
-    startListening() {
+    startListening(): void {
         this.listening = true;
 
-        if (typeof window !== "undefined") {
+        if (typeof window !== "undefined" && this.callback) {
             window.addEventListener("error", this.callback);
         }
     }
 
-    stopListening() {
-        this.listening = true;
+    stopListening(): void {
+        this.listening = false;
 
-        this.listening = true;
-
-        if (typeof window !== "undefined") {
+        if (typeof window !== "undefined" && this.callback) {
             window.removeEventListener("error", this.callback);
         }
     }
 
-    dispose() {
+    dispose(): void {
         if (this.listening) {
             this.stopListening();
         }
 
-        this.callback = null;
+        this.callback = undefined;
     }
 }

@@ -22,11 +22,11 @@ export default class PixiConsole extends PIXI.Container {
         return PixiConsole.instance;
     }
 
-    private _background: PIXI.Graphics;
+    private _background!: PIXI.Graphics;
     private _config: PixiConsoleConfig;
     private _consoleContainer: PIXI.Container;
 
-    private _errorListener: ErrorListener;
+    private _errorListener!: ErrorListener;
 
     /**
      * Pixi-console
@@ -47,7 +47,7 @@ export default class PixiConsole extends PIXI.Container {
 
         PixiConsole.instance = this;
 
-        let defaultConfig = new PixiConsoleConfig();
+        const defaultConfig = new PixiConsoleConfig();
         this._config = { ...defaultConfig, ...config };
 
         if (config && config.eventsConfig) {
@@ -150,14 +150,14 @@ export default class PixiConsole extends PIXI.Container {
         color: number = this._config.fontColor,
         fontSize: number = this._config.fontSize
     ): PixiConsole {
-        let text = new PIXI.Text(message, {
+        const text = new PIXI.Text(message, {
             fill: color,
             fontSize: fontSize,
             wordWrap: true,
             wordWrapWidth: this._config.consoleWidth - this._config.textStartingX,
         });
 
-        let totalTextsHeight = this._consoleContainer.children
+        const totalTextsHeight = this._consoleContainer.children
             .map((textContainer) => (textContainer as PIXI.Container).height + this._config.textYSpacing)
             .reduce((totalHeight, currentHeight) => totalHeight + currentHeight, 0);
 
@@ -185,7 +185,7 @@ export default class PixiConsole extends PIXI.Container {
         return this;
     }
 
-    scrollUp(timesScroll: number = 1, yStep: number = this._config.scrollingYStep): PixiConsole {
+    scrollUp(timesScroll = 1, yStep: number = this._config.scrollingYStep): PixiConsole {
         if (this._consoleContainer.y < yStep) {
             this._consoleContainer.y += yStep * timesScroll;
         }
@@ -193,7 +193,7 @@ export default class PixiConsole extends PIXI.Container {
         return this;
     }
 
-    scrollDown(timesScroll: number = 1, yStep: number = this._config.scrollingYStep): PixiConsole {
+    scrollDown(timesScroll = 1, yStep: number = this._config.scrollingYStep): PixiConsole {
         this._consoleContainer.y -= yStep * timesScroll;
 
         return this;
@@ -238,19 +238,21 @@ export default class PixiConsole extends PIXI.Container {
     }
 
     private _updateConsoleEvents(): void {
-        let self = this;
-
-        const eventsConfig = this._config.eventsConfig;
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
+        const self: any = this;
+        const eventsConfig: any = this._config.eventsConfig;
 
         for (const event in eventsConfig) {
             if (eventsConfig[event]) {
-                console[event] = function () {
+                (window.console as any)[event] = function () {
+                    // eslint-disable-next-line prefer-rest-params
                     self["_" + event](...Array.from(arguments));
 
-                    return PixiConsole.ORIG_CONSOLE_FUNCTIONS[event].apply(console, arguments);
+                    // eslint-disable-next-line prefer-rest-params
+                    return (PixiConsole.ORIG_CONSOLE_FUNCTIONS as any)[event].apply(console, arguments);
                 };
             } else {
-                console[event] = PixiConsole.ORIG_CONSOLE_FUNCTIONS[event];
+                (window.console as any)[event] = (PixiConsole.ORIG_CONSOLE_FUNCTIONS as any)[event];
             }
         }
 
@@ -283,7 +285,7 @@ export default class PixiConsole extends PIXI.Container {
     }
 
     private messageBuilder(message: any): string {
-        let finalMesage: string = "";
+        let finalMesage = "";
 
         if (this._config.showCaller) {
             finalMesage += this.lineGuesser() + " ";
