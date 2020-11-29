@@ -5,7 +5,7 @@
     "keywords": [],
     "main": "dist/pixi-console.umd.js",
     "module": "dist/pixi-console.es5.js",
-    "typings": "dist/types/pixi-console.d.ts",
+    "typings": "dist/types/index.d.ts",
     "files": [
         "dist"
     ],
