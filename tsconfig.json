@@ -1,17 +1,22 @@
 {
   "compilerOptions": {
-    "moduleResolution": "node",
-    "target": "es5",
-    "module": "ESNext",
-    "strict": true,
-    "sourceMap": true,
-    "declaration": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "declarationDir": "dist/types",
-    "outDir": "dist/lib",
-  },
-  "include": [
-    "src"
-  ]
+      "target": "ES2022",
+      "module": "CommonJS",
+      "declaration": true,
+      "moduleResolution": "node",
+      "strict": true,
+      "sourceMap": true,
+      "esModuleInterop": true,
+      "allowSyntheticDefaultImports": true,
+      "forceConsistentCasingInFileNames": true,
+      "paths": {
+          "mini-signals": ["./node_modules/resource-loader/typings/mini-signals.d.ts"]
+      },
+      "lib": ["ES2022", "DOM"]
+    },
+    "include": ["src/**/*"],
+    "exclude": [
+      "node_modules/**/**",
+      "**/dist/**",
+  ],
 }
