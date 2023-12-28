@@ -1,12 +1,16 @@
-[![Build Status](https://travis-ci.com/jkanchelov/pixi-console.svg?branch=master)](https://travis-ci.com/jkanchelov/pixi-console) [![code style: prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg?style=flat-square)](https://github.com/prettier/prettier)
-
 # Pixi-console
 
-Console class for PIXI useful for developing mobile game.
+[![Build Status](https://travis-ci.com/jkanchelov/pixi-console.svg?branch=master)](https://travis-ci.com/jkanchelov/pixi-console) [![code style: prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg?style=flat-square)](https://github.com/prettier/prettier)
+
+Console class for Pixi.js useful for developing mobile game.
 
 By default attaches itself to console log and error and will show itself if error is occurred.
 
-![](https://github.com/jkanchelov/pixi-console/blob/master/img/example.png?raw=true)
+![showcase image](https://github.com/jkanchelov/pixi-console/blob/master/img/example.png?raw=true)
+
+## Recent update ( 25.12.2023 )
+
+- 🆕 Added support for Pixi v7 alongside with v6
 
 ## Table of Contents
 
@@ -23,9 +27,8 @@ By default attaches itself to console log and error and will show itself if erro
 ```javascript
 npm install pixi-console
 ```
-- If you want > pixi.js 5.0.0 support go with pixi-console 3.0.0 or greater version
-- For backward compatibility ( pixi.js v4.0.0 ) go with pixi-console 2.5.0 or greater version 
 
+- For backward compatibility ( pixi.js v4.0.0 ) go with pixi-console 2.5.0 or greater version
 
 ## Usage
 

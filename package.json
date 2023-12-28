@@ -44,6 +44,6 @@
         "webpack-cli": "^5.1.4"
     },
     "peerDependencies": {
-        "pixi.js": "^7.0.0"
+        "pixi.js": "^6.0.0 || ^7.0.0"
     }
 }
