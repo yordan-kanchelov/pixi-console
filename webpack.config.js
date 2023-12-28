@@ -58,4 +58,4 @@ const commonJsConfig = {
     },
 };
 
-module.exports = [umdConfig, esConfig, commonJsConfig];
+module.exports = [umdConfig, commonJsConfig];
