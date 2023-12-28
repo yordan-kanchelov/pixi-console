@@ -1,14 +1,15 @@
-name: Windows build
+name: Build and Lint
 
 on: [push, pull_request]
 
 jobs:
     build:
-        runs-on: [windows-latest, macos-latest, ubuntu-latest]
-
         strategy:
             matrix:
+                os: [windows-latest, macos-latest, ubuntu-latest]
                 node-version: [20.x]
+
+        runs-on: ${{ matrix.os }}
 
         steps:
             - uses: actions/checkout@v1
