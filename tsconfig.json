@@ -1,22 +1,16 @@
 {
-  "compilerOptions": {
-      "target": "ES2022",
-      "module": "CommonJS",
-      "declaration": true,
-      "moduleResolution": "node",
-      "strict": true,
-      "sourceMap": true,
-      "esModuleInterop": true,
-      "allowSyntheticDefaultImports": true,
-      "forceConsistentCasingInFileNames": true,
-      "paths": {
-          "mini-signals": ["./node_modules/resource-loader/typings/mini-signals.d.ts"]
-      },
-      "lib": ["ES2022", "DOM"]
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "CommonJS",
+        "declaration": true,
+        "moduleResolution": "node",
+        "strict": true,
+        "sourceMap": true,
+        "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true,
+        "forceConsistentCasingInFileNames": true,
+        "lib": ["ES2022", "DOM"],
+        "outDir": "./dist"
     },
-    "include": ["src/**/*"],
-    "exclude": [
-      "node_modules/**/**",
-      "**/dist/**",
-  ],
+    "include": ["src/**/*"]
 }
