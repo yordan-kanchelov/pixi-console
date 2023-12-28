@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import * as PIXI from "pixi.js";
 
 import PixiConsoleConfig from "./models/config";
@@ -41,7 +42,7 @@ export default class PixiConsole extends PIXI.Container {
         if (PixiConsole.instance) {
             throw new Error(
                 `PixiConsole has been initialized once.
-                Use PixiConsole.getInstance() to work with it`
+                Use PixiConsole.getInstance() to work with it`,
             );
         }
 
@@ -148,7 +149,7 @@ export default class PixiConsole extends PIXI.Container {
     print(
         message: string,
         color: number = this._config.fontColor,
-        fontSize: number = this._config.fontSize
+        fontSize: number = this._config.fontSize,
     ): PixiConsole {
         const text = new PIXI.Text(message, {
             fill: color,

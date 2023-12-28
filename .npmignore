@@ -1,0 +1,13 @@
+.git
+CVS
+.svn
+.hg
+.lock-wscript
+.*.swp
+.DS_Store
+._*
+npm-debug.log
+.npmrc
+node_modules
+config.gypi
+*.orig

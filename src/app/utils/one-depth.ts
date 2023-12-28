@@ -1,5 +1,5 @@
 //This function limits a Json.Stringify to only one depth to prevent circular objects from exploding.
-export default function oneDepth(k: string, v: any) {
+export default function oneDepth(k: string, v: unknown) {
     if (!k || !v) return v;
     if (typeof v == "object") {
         if (v.constructor) {

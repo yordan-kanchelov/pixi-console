@@ -1,17 +1,16 @@
 {
-  "compilerOptions": {
-    "moduleResolution": "node",
-    "target": "es5",
-    "module": "ESNext",
-    "strict": true,
-    "sourceMap": true,
-    "declaration": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "declarationDir": "dist/types",
-    "outDir": "dist/lib",
-  },
-  "include": [
-    "src"
-  ]
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "CommonJS",
+        "declaration": true,
+        "moduleResolution": "node",
+        "strict": true,
+        "sourceMap": true,
+        "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true,
+        "forceConsistentCasingInFileNames": true,
+        "lib": ["ES2022", "DOM"],
+        "outDir": "./dist"
+    },
+    "include": ["src/**/*"]
 }

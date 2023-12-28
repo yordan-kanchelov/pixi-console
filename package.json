@@ -1,102 +1,50 @@
 {
     "name": "pixi-console",
-    "version": "3.2.1",
+    "version": "4.0.0",
     "description": "",
     "keywords": [],
-    "main": "dist/pixi-console.umd.js",
-    "module": "dist/pixi-console.es5.js",
-    "typings": "dist/types/index.d.ts",
+    "main": "dist/pixi-console.js",
+    "unpkg": "dist/pixi-console.umd.js",
+    "types": "dist/index.d.ts",
     "files": [
         "dist"
     ],
     "author": "Yordan <yordan.kanchelov@gmail.com>",
     "repository": {
         "type": "git",
-        "url": "https://github.com/jkanchelov/pixi-console.git"
+        "url": "https://github.com/yordan-kanchelov/pixi-console.git"
     },
     "license": "MIT",
     "scripts": {
-        "lint": "npx eslint ./src/**/*.ts",
+        "lint": "eslint . --ext .ts,.tsx && npx prettier --check **/*.{ts,js,json}",
         "prebuild": "rimraf dist",
-        "build": "tsc --module commonjs && rollup -c rollup.config.ts && typedoc --out docs --target es6 --theme minimal --mode file src",
+        "build": "cross-env NODE_ENV=production webpack",
+        "build:watch": "cross-env NODE_ENV=development webpack --watch",
         "start": "rollup -c rollup.config.ts -w",
-        "test": "jest --coverage",
-        "test:watch": "jest --coverage --watch",
-        "test:prod": "npm run lint && npm run test -- --no-cache",
-        "deploy-docs": "ts-node tools/gh-pages-publish",
-        "report-coverage": "cat ./coverage/lcov.info | coveralls",
-        "precommit": "lint-staged",
-        "prepush": "npm run test:prod && npm run build"
+        "prepublish": "npm run build",
+        "prepare": "husky install"
     },
     "devDependencies": {
-        "@types/pixi.js": "^5.0.0",
-        "@types/jest": "^26.0.15",
-        "@types/node": "^14.14.10",
-        "@typescript-eslint/eslint-plugin": "^4.8.2",
-        "@typescript-eslint/parser": "^4.8.2",
+        "@types/css-font-loading-module": "^0.0.12",
+        "@typescript-eslint/eslint-plugin": "^6.16.0",
+        "@typescript-eslint/parser": "^6.16.0",
         "colors": "^1.4.0",
-        "coveralls": "^3.1.0",
-        "cross-env": "^7.0.2",
-        "eslint": "^7.14.0",
-        "eslint-config-prettier": "^6.15.0",
-        "eslint-plugin-prettier": "^3.1.4",
-        "husky": "^4.3.0",
-        "jest": "^26.6.3",
-        "jest-config": "^26.6.3",
-        "lint-staged": "^10.5.2",
-        "lodash.camelcase": "^4.3.0",
-        "prettier": "^2.2.1",
-        "prompt": "^1.0.0",
-        "replace-in-file": "^6.1.0",
-        "rimraf": "^3.0.2",
-        "rollup": "^2.33.3",
-        "rollup-plugin-commonjs": "^9.1.8",
-        "rollup-plugin-json": "^3.1.0",
-        "rollup-plugin-node-resolve": "^3.4.0",
-        "rollup-plugin-sourcemaps": "^0.6.3",
-        "rollup-plugin-typescript2": "^0.29.0",
-        "semantic-release": "^17.3.0",
-        "shelljs": "^0.8.4",
-        "travis-deploy-once": "^5.0.9",
-        "ts-jest": "^26.4.4",
-        "ts-node": "^9.0.0",
-        "typedoc": "^0.19.2",
-        "typescript": "^4.1.2"
+        "cross-env": "^7.0.3",
+        "eslint": "^8.56.0",
+        "eslint-config-prettier": "^9.1.0",
+        "eslint-plugin-prettier": "^5.1.2",
+        "husky": "^8.0.3",
+        "lint-staged": "^15.2.0",
+        "prettier": "^3.1.1",
+        "rimraf": "^5.0.5",
+        "ts-loader": "^9.5.1",
+        "ts-node": "^10.9.2",
+        "typedoc": "^0.25.4",
+        "typescript": "^5.3.3",
+        "webpack": "^5.89.0",
+        "webpack-cli": "^5.1.4"
     },
     "peerDependencies": {
-        "pixi.js": "^5.3.3"
-    },
-    "lint-staged": {
-        "{src,test}/**/*.ts": [
-            "prettier --write",
-            "git add"
-        ]
-    },
-    "jest": {
-        "transform": {
-            ".(ts|tsx)": "ts-jest"
-        },
-        "testEnvironment": "node",
-        "testRegex": "(/__tests__/.*|\\.(test|spec))\\.(ts|tsx|js)$",
-        "moduleFileExtensions": [
-            "ts",
-            "tsx",
-            "js"
-        ],
-        "coveragePathIgnorePatterns": [
-            "/node_modules/",
-            "/test/"
-        ],
-        "coverageThreshold": {
-            "global": {
-                "branches": 90,
-                "functions": 95,
-                "lines": 95,
-                "statements": 95
-            }
-        },
-        "collectCoverageFrom": [
-            "src/*.{js,ts}"
-        ]
+        "pixi.js": "^6.0.0 || ^7.0.0"
     }
 }
