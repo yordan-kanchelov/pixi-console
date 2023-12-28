@@ -21,6 +21,7 @@
         "build": "cross-env NODE_ENV=production webpack",
         "build:watch": "cross-env NODE_ENV=development webpack --watch",
         "start": "rollup -c rollup.config.ts -w",
+        "prepublish": "npm run build",
         "prepare": "husky install"
     },
     "devDependencies": {
