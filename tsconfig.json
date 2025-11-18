@@ -9,6 +9,7 @@
         "esModuleInterop": true,
         "allowSyntheticDefaultImports": true,
         "forceConsistentCasingInFileNames": true,
+        "skipLibCheck": true,
         "lib": ["ES2022", "DOM"],
         "outDir": "./dist"
     },

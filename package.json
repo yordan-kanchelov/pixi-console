@@ -17,14 +17,22 @@
     "license": "MIT",
     "scripts": {
         "lint": "eslint . --ext .ts,.tsx && npx prettier --check **/*.{ts,js,json}",
+        "lint:fix": "eslint . --ext .ts,.tsx --fix && npx prettier --write **/*.{ts,js,json}",
+        "typecheck": "tsc --noEmit",
         "prebuild": "rimraf dist",
         "build": "cross-env NODE_ENV=production webpack",
         "build:watch": "cross-env NODE_ENV=development webpack --watch",
         "start": "rollup -c rollup.config.ts -w",
-        "prepublish": "npm run build",
+        "test": "echo \"No tests specified\" && exit 0",
+        "test:coverage": "echo \"No tests specified\" && exit 0",
+        "prepublishOnly": "npm run build && npm run lint && npm run typecheck && npm run test",
+        "changeset": "changeset",
+        "version": "changeset version",
+        "release": "npm run build && changeset publish",
         "prepare": "husky install"
     },
     "devDependencies": {
+        "@changesets/cli": "^2.29.5",
         "@types/css-font-loading-module": "^0.0.12",
         "@typescript-eslint/eslint-plugin": "^6.16.0",
         "@typescript-eslint/parser": "^6.16.0",
@@ -45,6 +53,6 @@
         "webpack-cli": "^5.1.4"
     },
     "peerDependencies": {
-        "pixi.js": "^6.0.0 || ^7.0.0"
+        "pixi.js": "^6.0.0 || ^7.0.0 || ^8.0.0"
     }
 }

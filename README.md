@@ -8,9 +8,9 @@ By default attaches itself to console log and error and will show itself if erro
 
 ![showcase image](https://github.com/jkanchelov/pixi-console/blob/master/img/example.png?raw=true)
 
-## Recent update ( 25.12.2023 )
+## Recent update ( 2024 )
 
-- 🆕 Added support for Pixi v7 alongside with v6
+- 🆕 Added support for Pixi v8 alongside with v6 and v7
 
 ## Table of Contents
 
@@ -28,6 +28,7 @@ By default attaches itself to console log and error and will show itself if erro
 npm install pixi-console
 ```
 
+- For pixi.js v6, v7, and v8 support, use pixi-console 4.0.0 or greater version
 - For backward compatibility ( pixi.js v5 ) go with pixi-console 3.0.0 or greater version
 - For backward compatibility ( pixi.js v4 ) go with pixi-console 2.5.0 or greater version
 
