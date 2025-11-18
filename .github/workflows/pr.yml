@@ -31,7 +31,7 @@ jobs:
         id: check
         run: |
           # Check if this PR touches any code files
-          git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E '\.(ts|js|json)$' > /dev/null || {
+          git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E '\.(ts|js|json)$|package\.json' > /dev/null || {
             echo "No code changes detected, skipping changeset check"
             echo "has-changeset=skip" >> $GITHUB_OUTPUT
             exit 0
@@ -74,7 +74,7 @@ jobs:
         run: npm run test:coverage
 
       - name: Upload Coverage Reports
-        if: success()
+        if: success() && hashFiles('coverage/**') != ''
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
