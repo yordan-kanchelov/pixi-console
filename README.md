@@ -28,7 +28,7 @@ By default attaches itself to console log and error and will show itself if erro
 npm install pixi-console
 ```
 
-- For pixi.js v6, v7, and v8 support, use pixi-console 4.0.0 or greater version
+- For pixi.js v6, v7, and v8 support, use pixi-console 4.1.0 or greater version
 - For backward compatibility ( pixi.js v5 ) go with pixi-console 3.0.0 or greater version
 - For backward compatibility ( pixi.js v4 ) go with pixi-console 2.5.0 or greater version
 
