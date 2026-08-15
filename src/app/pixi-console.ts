@@ -151,11 +151,9 @@ export default class PixiConsole extends PIXI.Container {
         color: number = this._config.fontColor,
         fontSize: number = this._config.fontSize,
     ): PixiConsole {
-        const text = new PIXI.Text(message, {
+        const text = new PIXI.BitmapText(message, {
             fill: color,
             fontSize: fontSize,
-            wordWrap: true,
-            wordWrapWidth: this._config.consoleWidth - this._config.textStartingX,
         });
 
         const totalTextsHeight = this._consoleContainer.children
