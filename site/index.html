@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>pixi-console</title>
+        <meta
+            name="description"
+            content="An in-canvas developer console for PixiJS v8. See console.log, warnings and uncaught errors right on top of your game, even on phones without devtools."
+        />
+        <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=JetBrains+Mono:wght@400;500&display=swap"
+            rel="stylesheet"
+        />
+    </head>
+    <body>
+        <header class="nav">
+            <a class="brand" href="./"><img src="./favicon.svg" alt="" width="24" height="24" /> pixi-console</a>
+            <nav>
+                <a href="#playground">Playground</a>
+                <a href="#features">Features</a>
+                <a href="#usage">Usage</a>
+                <a href="./api/">API</a>
+                <a href="https://github.com/yordan-kanchelov/pixi-console" class="nav-github">GitHub</a>
+            </nav>
+        </header>
+
+        <main>
+            <section class="hero">
+                <p class="eyebrow">For PixiJS v8 · WebGL &amp; WebGPU</p>
+                <h1>Your browser console,<br /><span class="accent">inside the canvas.</span></h1>
+                <p class="lede">
+                    pixi-console captures <code>console.log</code>, warnings and uncaught errors and draws them on top
+                    of your scene. It's built for debugging on phones, tablets and TVs where you can't open devtools.
+                </p>
+                <div class="install">
+                    <code>npm install pixi-console</code>
+                    <button type="button" data-copy="npm install pixi-console" aria-label="Copy install command">
+                        Copy
+                    </button>
+                </div>
+            </section>
+
+            <section id="playground" class="playground">
+                <div class="stage-frame">
+                    <div id="stage" class="stage"></div>
+                </div>
+                <aside class="panel">
+                    <div id="controls">
+                        <h2>Log something</h2>
+                        <div class="buttons">
+                            <button type="button" data-action="log" class="lvl-log">console.log</button>
+                            <button type="button" data-action="info" class="lvl-info">console.info</button>
+                            <button type="button" data-action="debug" class="lvl-debug">console.debug</button>
+                            <button type="button" data-action="warn" class="lvl-warn">console.warn</button>
+                            <button type="button" data-action="error" class="lvl-error">console.error</button>
+                            <button type="button" data-action="object">log an object</button>
+                            <button type="button" data-action="throw">throw an error</button>
+                            <button type="button" data-action="reject">reject a promise</button>
+                            <button type="button" data-action="repeat">repeat ×10</button>
+                            <button type="button" data-action="spam">5000 logs</button>
+                            <button type="button" data-action="clear">console.clear()</button>
+                            <button type="button" data-action="toggle">toggle <kbd>`</kbd></button>
+                        </div>
+                    </div>
+                    <form id="settings">
+                        <h2>Options</h2>
+                        <fieldset class="segmented">
+                            <legend>textRenderer</legend>
+                            <label><input type="radio" name="textRenderer" value="bitmap" checked /> bitmap</label>
+                            <label><input type="radio" name="textRenderer" value="canvas" /> canvas</label>
+                        </fieldset>
+                        <label class="switch"><input type="checkbox" name="timestamps" /> timestamps</label>
+                        <label class="switch"
+                            ><input type="checkbox" name="collapseRepeats" checked /> collapseRepeats</label
+                        >
+                        <label class="switch"><input type="checkbox" name="toolbar" checked /> toolbar</label>
+                    </form>
+                    <pre class="code snippet"><code id="snippet"></code></pre>
+                </aside>
+            </section>
+
+            <section id="features" class="features">
+                <article>
+                    <h3>Captures everything</h3>
+                    <p>
+                        It captures <code>log</code>, <code>info</code>, <code>debug</code>, <code>warn</code> and
+                        <code>error</code>, plus uncaught errors, unhandled promise rejections and
+                        <code>console.clear()</code>. Your devtools keep working as usual.
+                    </p>
+                </article>
+                <article>
+                    <h3>Reads like devtools</h3>
+                    <p>
+                        It supports printf-style <code>%s %d %o</code> substitutions. Objects, Maps and Sets are
+                        pretty-printed, circular references are handled, errors show their stack, and repeated messages
+                        collapse into one line.
+                    </p>
+                </article>
+                <article>
+                    <h3>Virtualized &amp; fast</h3>
+                    <p>
+                        Only the visible lines exist as display objects, drawn with <code>BitmapText</code> from a
+                        single glyph atlas. Layout happens at most once per frame, so a flood of logs costs almost
+                        nothing.
+                    </p>
+                </article>
+                <article>
+                    <h3>Touch friendly</h3>
+                    <p>
+                        Scroll with the wheel or by dragging. The toolbar lets you filter by level, clear, and close the
+                        console. It opens itself when an error happens.
+                    </p>
+                </article>
+                <article>
+                    <h3>Fits any screen</h3>
+                    <p>
+                        <code>autoResize</code> follows your renderer across window resizes and orientation changes. Put
+                        the console anywhere with a layout function.
+                    </p>
+                </article>
+                <article>
+                    <h3>Tiny &amp; typed</h3>
+                    <p>
+                        Zero runtime dependencies besides <code>pixi.js</code>. Ships ESM, CommonJS and a
+                        <code>&lt;script&gt;</code> build with full TypeScript types.
+                    </p>
+                </article>
+            </section>
+
+            <section id="usage" class="usage">
+                <div>
+                    <h2>Quick start</h2>
+                    <pre
+                        class="code"
+                    ><code><span class="tok-keyword">import</span> { <span class="tok-type">Application</span> } <span class="tok-keyword">from</span> <span class="tok-string">"pixi.js"</span>;
+<span class="tok-keyword">import</span> { <span class="tok-type">PixiConsole</span> } <span class="tok-keyword">from</span> <span class="tok-string">"pixi-console"</span>;
+
+<span class="tok-keyword">const</span> app = <span class="tok-keyword">new</span> <span class="tok-type">Application</span>();
+<span class="tok-keyword">await</span> app.init({ resizeTo: window });
+document.body.appendChild(app.canvas);
+
+<span class="tok-keyword">const</span> devConsole = <span class="tok-keyword">new</span> <span class="tok-type">PixiConsole</span>({
+    autoResize: { renderer: app.renderer },
+});
+app.stage.addChild(devConsole);
+
+console.log(<span class="tok-string">"Hello from the canvas!"</span>);</code></pre>
+                </div>
+                <div>
+                    <h2>Or with a script tag</h2>
+                    <pre
+                        class="code"
+                    ><code>&lt;<span class="tok-keyword">script</span> src=<span class="tok-string">"https://cdn.jsdelivr.net/npm/pixi.js@8/dist/pixi.min.js"</span>&gt;&lt;/<span class="tok-keyword">script</span>&gt;
+&lt;<span class="tok-keyword">script</span> src=<span class="tok-string">"https://cdn.jsdelivr.net/npm/pixi-console@5"</span>&gt;&lt;/<span class="tok-keyword">script</span>&gt;
+&lt;<span class="tok-keyword">script</span>&gt;
+    <span class="tok-keyword">const</span> devConsole = <span class="tok-keyword">new</span> <span class="tok-type">PixiConsole</span>.<span class="tok-type">PixiConsole</span>();
+&lt;/<span class="tok-keyword">script</span>&gt;</code></pre>
+                    <p class="muted">
+                        Every option, method and type is documented in the <a href="./api/">API reference</a>. Coming
+                        from v4? Read the
+                        <a href="https://github.com/yordan-kanchelov/pixi-console#migrating-from-v4">migration guide</a
+                        >.
+                    </p>
+                </div>
+            </section>
+        </main>
+
+        <footer class="footer">
+            <p>
+                MIT licensed · Made for <a href="https://pixijs.com">PixiJS</a> ·
+                <a href="https://www.npmjs.com/package/pixi-console">npm</a> ·
+                <a href="https://github.com/yordan-kanchelov/pixi-console">GitHub</a>
+            </p>
+        </footer>
+
+        <script type="module" src="./main.ts"></script>
+    </body>
+</html>

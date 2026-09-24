@@ -1,0 +1,21 @@
+{
+    "$schema": "https://typedoc.org/schema.json",
+    "entryPoints": ["src/index.ts"],
+    "out": "site/dist/api",
+    "name": "pixi-console",
+    "readme": "none",
+    "includeVersion": true,
+    "excludePrivate": true,
+    "excludeInternal": true,
+    "excludeExternals": true,
+    "githubPages": true,
+    "sort": ["source-order"],
+    "navigationLinks": {
+        "Playground": "https://yordan-kanchelov.github.io/pixi-console/",
+        "GitHub": "https://github.com/yordan-kanchelov/pixi-console",
+        "npm": "https://www.npmjs.com/package/pixi-console"
+    },
+    "externalSymbolLinkMappings": {
+        "pixi.js": { "*": "https://pixijs.download/release/docs/index.html" }
+    }
+}
