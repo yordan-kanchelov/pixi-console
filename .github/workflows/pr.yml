@@ -1,0 +1,98 @@
+name: PR Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    # Skip documentation-only changes. site/ has its own workflow.
+    paths-ignore:
+      - "*.md"
+      - "LICENSE"
+      - "img/**"
+      - "site/**"
+
+concurrency:
+  group: pr-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check-changeset:
+    name: Verify Changeset
+    runs-on: ubuntu-latest
+    if: github.head_ref != 'changeset-release/master'
+    outputs:
+      has-changeset: ${{ steps.check.outputs.has-changeset }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-node-npm
+
+      - name: Check for changeset
+        id: check
+        run: |
+          # Only changes to code or package config need a changeset
+          git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E '\.(ts|tsx|js|cjs|mjs|json)$' > /dev/null || {
+            echo "No code changes detected, skipping changeset check"
+            echo "has-changeset=skip" >> $GITHUB_OUTPUT
+            exit 0
+          }
+
+          if npx changeset status --since=origin/${{ github.base_ref }}; then
+            echo "has-changeset=true" >> $GITHUB_OUTPUT
+          else
+            echo "::error::This PR contains code changes but is missing a changeset. Run 'npx changeset' and commit the generated file."
+            echo "::error::If the change doesn't need a release (tests, CI, internal refactoring), add an empty one with 'npx changeset --empty'."
+            echo "has-changeset=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+  lint-and-test:
+    name: Lint, Type Check & Test (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    needs: check-changeset
+    if: ${{ !cancelled() && needs.check-changeset.result != 'failure' && needs.check-changeset.outputs.has-changeset != 'false' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [22, 24]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-node-npm
+        with:
+          node-version: ${{ matrix.node-version }}
+          playwright: "true"
+
+      - name: Lint & Check Formatting
+        run: npm run lint
+
+      - name: Type Check
+        run: npm run typecheck
+
+      - name: Run Tests with Coverage
+        run: npm run test:coverage
+
+      - name: Build Package
+        run: npm run build
+
+      # publint + are-the-types-wrong on the packed tarball, the same check prepublishOnly runs
+      - name: Check Package
+        run: npm run check:package
+
+      - name: Build Site
+        run: npm run build:site
+
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-report-node${{ matrix.node-version }}
+          path: coverage/
+          retention-days: 7

@@ -1,50 +1,105 @@
 {
     "name": "pixi-console",
     "version": "4.0.0",
-    "description": "",
-    "keywords": [],
-    "main": "dist/pixi-console.js",
-    "unpkg": "dist/pixi-console.umd.js",
-    "types": "dist/index.d.ts",
+    "description": "An in-canvas developer console for PixiJS v8 — see console.log/warn/error output and uncaught errors right on top of your game, even on mobile devices without devtools.",
+    "keywords": [
+        "pixi",
+        "pixi.js",
+        "pixijs",
+        "console",
+        "debug",
+        "logger",
+        "overlay",
+        "mobile",
+        "devtools",
+        "gamedev"
+    ],
+    "homepage": "https://yordan-kanchelov.github.io/pixi-console/",
+    "bugs": {
+        "url": "https://github.com/yordan-kanchelov/pixi-console/issues"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/yordan-kanchelov/pixi-console.git"
+    },
+    "license": "MIT",
+    "author": "Yordan Kanchelov <yordan.kanchelov@gmail.com>",
+    "type": "module",
+    "sideEffects": false,
+    "exports": {
+        ".": {
+            "import": {
+                "types": "./dist/index.d.ts",
+                "default": "./dist/index.js"
+            },
+            "require": {
+                "types": "./dist/index.d.cts",
+                "default": "./dist/index.cjs"
+            }
+        },
+        "./package.json": "./package.json"
+    },
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.cts",
+    "unpkg": "./dist/pixi-console.iife.js",
+    "jsdelivr": "./dist/pixi-console.iife.js",
     "files": [
         "dist"
     ],
-    "author": "Yordan <yordan.kanchelov@gmail.com>",
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/yordan-kanchelov/pixi-console.git"
-    },
-    "license": "MIT",
     "scripts": {
-        "lint": "eslint . --ext .ts,.tsx && npx prettier --check **/*.{ts,js,json}",
-        "prebuild": "rimraf dist",
-        "build": "cross-env NODE_ENV=production webpack",
-        "build:watch": "cross-env NODE_ENV=development webpack --watch",
-        "start": "rollup -c rollup.config.ts -w",
-        "prepublish": "npm run build",
-        "prepare": "husky install"
+        "dev": "vite site",
+        "build": "tsdown",
+        "build:site": "vite build site && typedoc",
+        "preview": "vite preview site",
+        "typecheck": "tsc --noEmit",
+        "lint": "eslint . && prettier --check .",
+        "format": "prettier --write . && eslint . --fix",
+        "test": "vitest run",
+        "test:unit": "vitest run --project unit",
+        "test:browser": "vitest run --project browser",
+        "test:watch": "vitest",
+        "test:coverage": "vitest run --coverage",
+        "check:package": "publint --strict && attw --pack .",
+        "docs": "typedoc",
+        "record:gif": "node scripts/record-gif.mjs",
+        "prepublishOnly": "npm run build && npm run check:package",
+        "prepare": "husky",
+        "changeset": "changeset",
+        "version": "changeset version",
+        "release": "npm run build && changeset publish"
     },
     "devDependencies": {
-        "@types/css-font-loading-module": "^0.0.12",
-        "@typescript-eslint/eslint-plugin": "^6.16.0",
-        "@typescript-eslint/parser": "^6.16.0",
-        "colors": "^1.4.0",
-        "cross-env": "^7.0.3",
-        "eslint": "^8.56.0",
-        "eslint-config-prettier": "^9.1.0",
-        "eslint-plugin-prettier": "^5.1.2",
-        "husky": "^8.0.3",
-        "lint-staged": "^15.2.0",
-        "prettier": "^3.1.1",
-        "rimraf": "^5.0.5",
-        "ts-loader": "^9.5.1",
-        "ts-node": "^10.9.2",
-        "typedoc": "^0.25.4",
-        "typescript": "^5.3.3",
-        "webpack": "^5.89.0",
-        "webpack-cli": "^5.1.4"
+        "@arethetypeswrong/cli": "^0.18.5",
+        "@changesets/cli": "^3.0.3",
+        "@eslint/js": "^10.0.1",
+        "@types/node": "^24.13.6",
+        "@vitest/browser-playwright": "^5.0.1",
+        "@vitest/coverage-v8": "^5.0.1",
+        "eslint": "^10.11.0",
+        "eslint-config-prettier": "^10.1.8",
+        "gifenc": "^1.0.3",
+        "globals": "^17.12.0",
+        "husky": "^9.1.7",
+        "jsdom": "^30.1.1",
+        "lint-staged": "^17.5.1",
+        "pixi.js": "^8.21.0",
+        "playwright": "^1.63.0",
+        "pngjs": "^7.0.0",
+        "prettier": "^3.9.9",
+        "publint": "^0.3.24",
+        "tsdown": "^0.23.0",
+        "typedoc": "^0.28.20",
+        "typescript": "~6.0.3",
+        "typescript-eslint": "^8.70.1",
+        "vite": "^8.3.1",
+        "vitest": "^5.0.1"
     },
     "peerDependencies": {
-        "pixi.js": "^6.0.0 || ^7.0.0"
+        "pixi.js": "^8.0.0"
+    },
+    "publishConfig": {
+        "access": "public",
+        "provenance": true
     }
 }

@@ -1,16 +1,21 @@
 {
     "compilerOptions": {
         "target": "ES2022",
-        "module": "CommonJS",
-        "declaration": true,
-        "moduleResolution": "node",
+        "lib": ["ES2022", "DOM", "DOM.Iterable"],
+        "module": "ESNext",
+        "moduleResolution": "bundler",
         "strict": true,
-        "sourceMap": true,
-        "esModuleInterop": true,
-        "allowSyntheticDefaultImports": true,
-        "forceConsistentCasingInFileNames": true,
-        "lib": ["ES2022", "DOM"],
-        "outDir": "./dist"
+        "noUncheckedIndexedAccess": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "noImplicitOverride": true,
+        "noFallthroughCasesInSwitch": true,
+        "isolatedModules": true,
+        "verbatimModuleSyntax": true,
+        "skipLibCheck": true,
+        "types": ["vite/client"],
+        "noEmit": true,
+        "paths": { "pixi-console": ["./src/index.ts"] }
     },
-    "include": ["src/**/*"]
+    "include": ["src", "test", "site", "scripts", "*.config.ts"]
 }

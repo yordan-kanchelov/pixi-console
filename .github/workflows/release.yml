@@ -1,0 +1,91 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - master
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    outputs:
+      published: ${{ steps.changesets.outputs.published }}
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v7
+        with:
+          # Full history so Changesets can link commits in the changelog
+          fetch-depth: 0
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-node-npm
+        with:
+          node-version: 24
+          registry-url: "https://registry.npmjs.org"
+
+      # npm OIDC trusted publishing requires npm CLI >= 11.5.1
+      - name: Upgrade npm for OIDC trusted publishing
+        run: npm install --global npm@latest
+
+      # Opens/updates the "chore: version packages" PR while changesets are pending,
+      # and publishes to npm + creates the GitHub release once that PR is merged.
+      - name: Create Release Pull Request or Publish to npm
+        id: changesets
+        uses: changesets/action@v2
+        with:
+          publish-script: npm run release
+          version-script: npm run version
+          commit-message: "chore: version packages"
+          pr-title: "chore: version packages"
+          create-github-releases: true
+
+      - name: Publish Release Summary
+        if: steps.changesets.outputs.published == 'true'
+        run: |
+          echo "## Published Packages" >> $GITHUB_STEP_SUMMARY
+          echo '${{ steps.changesets.outputs.published-packages }}' >> $GITHUB_STEP_SUMMARY
+
+  deploy-site:
+    name: Deploy site
+    needs: release
+    if: needs.release.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-node-npm
+
+      # Playground at /, API reference (TypeDoc) at /api/
+      - name: Build site
+        run: npm run build:site
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site/dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
