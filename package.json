@@ -1,6 +1,6 @@
 {
     "name": "pixi-console",
-    "version": "4.0.0",
+    "version": "5.0.0",
     "description": "An in-canvas developer console for PixiJS v8 — see console.log/warn/error output and uncaught errors right on top of your game, even on mobile devices without devtools.",
     "keywords": [
         "pixi",
