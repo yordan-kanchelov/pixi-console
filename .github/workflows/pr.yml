@@ -21,7 +21,8 @@ jobs:
   check-changeset:
     name: Verify Changeset
     runs-on: ubuntu-latest
-    if: github.head_ref != 'changeset-release/master'
+    # Version PRs and dependency bumps don't need a changeset
+    if: github.head_ref != 'changeset-release/master' && github.actor != 'dependabot[bot]'
     outputs:
       has-changeset: ${{ steps.check.outputs.has-changeset }}
     steps:
