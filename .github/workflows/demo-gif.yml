@@ -1,0 +1,23 @@
+name: Record demo GIF
+
+on: workflow_dispatch
+
+permissions:
+  contents: read
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps --only-shell chromium
+      - run: npm run record:gif
+      - uses: actions/upload-artifact@v7
+        with:
+          name: demo-gif
+          path: img/demo.gif

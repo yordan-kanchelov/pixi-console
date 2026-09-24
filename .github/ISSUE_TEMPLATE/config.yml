@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Live playground
+    url: https://yordan-kanchelov.github.io/pixi-console/
+    about: Try pixi-console in the browser before opening an issue.
