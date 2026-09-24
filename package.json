@@ -64,10 +64,14 @@
         "docs": "typedoc",
         "record:gif": "node scripts/record-gif.mjs",
         "prepublishOnly": "npm run build && npm run check:package",
-        "prepare": "husky"
+        "prepare": "husky",
+        "changeset": "changeset",
+        "version": "changeset version",
+        "release": "npm run build && changeset publish"
     },
     "devDependencies": {
         "@arethetypeswrong/cli": "^0.18.5",
+        "@changesets/cli": "^3.0.3",
         "@eslint/js": "^10.0.1",
         "@types/node": "^24.13.6",
         "@vitest/browser-playwright": "^5.0.1",

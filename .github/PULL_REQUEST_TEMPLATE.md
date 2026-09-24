@@ -7,5 +7,4 @@
 - [ ] `npm run lint && npm run typecheck`
 - [ ] `npm test`
 - [ ] Tried it in the playground (`npm run dev`)
-
-<!-- PR titles follow Conventional Commits (feat:, fix:, docs:, chore: ...) so release-please can build the changelog. -->
+- [ ] Added a changeset (`npx changeset`, or `npx changeset --empty` if no release is needed)

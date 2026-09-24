@@ -1,7 +1,7 @@
 # pixi-console
 
 [![npm](https://img.shields.io/npm/v/pixi-console?color=ff4f9a)](https://www.npmjs.com/package/pixi-console)
-[![CI](https://github.com/yordan-kanchelov/pixi-console/actions/workflows/ci.yml/badge.svg)](https://github.com/yordan-kanchelov/pixi-console/actions/workflows/ci.yml)
+[![CI](https://github.com/yordan-kanchelov/pixi-console/actions/workflows/pr.yml/badge.svg)](https://github.com/yordan-kanchelov/pixi-console/actions/workflows/pr.yml)
 [![pixi.js](https://img.shields.io/npm/dependency-version/pixi-console/peer/pixi.js?label=pixi.js)](https://pixijs.com)
 [![bundle size](https://img.shields.io/bundlephobia/minzip/pixi-console)](https://bundlephobia.com/package/pixi-console)
 [![license](https://img.shields.io/npm/l/pixi-console)](./LICENSE)
@@ -212,7 +212,7 @@ npm run record:gif   # re-record img/demo.gif
 
 The browser tests and the GIF recorder need Chromium: run `npx playwright install chromium`, or point `PW_CHROMIUM_PATH` at an existing binary.
 
-Releases are automated with [release-please](https://github.com/googleapis/release-please): use [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, …) and merging the release PR publishes to npm.
+Releases use [Changesets](https://github.com/changesets/changesets). Every PR that changes the package needs a changeset: run `npx changeset`, or `npx changeset --empty` for changes that don't need a release. The Release workflow keeps a "chore: version packages" PR up to date, and merging it publishes to npm and creates the GitHub release.
 
 ## Contributing
 

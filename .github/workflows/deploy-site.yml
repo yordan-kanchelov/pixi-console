@@ -1,0 +1,66 @@
+name: Site CI
+
+# Library changes reach the site with each release (see release.yml). This workflow
+# covers site-only changes: it builds them on PRs and deploys them from master.
+on:
+  pull_request:
+    paths:
+      - "site/**"
+      - "img/**"
+      - "README.md"
+      - "typedoc.json"
+      - ".github/workflows/deploy-site.yml"
+  push:
+    branches: [master]
+    paths:
+      - "site/**"
+      - "img/**"
+      - "README.md"
+      - "typedoc.json"
+      - ".github/workflows/deploy-site.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: site-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-node-npm
+
+      - name: Build
+        run: npm run build:site
+
+      - name: Upload GitHub Pages artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site/dist
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

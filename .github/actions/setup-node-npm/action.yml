@@ -1,0 +1,33 @@
+name: "Setup Node.js and npm"
+description: "Sets up Node.js with npm caching and installs dependencies"
+inputs:
+  node-version:
+    description: "Node.js version to use"
+    required: false
+    default: "24"
+  registry-url:
+    description: "npm registry URL to configure in .npmrc for auth (e.g. https://registry.npmjs.org)"
+    required: false
+    default: ""
+  playwright:
+    description: "Install Chromium for the browser tests"
+    required: false
+    default: "false"
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v7
+      with:
+        node-version: ${{ inputs.node-version }}
+        registry-url: ${{ inputs.registry-url }}
+        cache: npm
+
+    - name: Install dependencies
+      shell: bash
+      run: npm ci
+
+    - name: Install Chromium
+      if: inputs.playwright == 'true'
+      shell: bash
+      run: npx playwright install --with-deps --only-shell chromium

@@ -2,48 +2,90 @@ name: Release
 
 on:
   push:
-    branches: [master]
+    branches:
+      - master
 
-permissions: {}
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
 
 jobs:
-  release-please:
+  release:
+    name: Release
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
     outputs:
-      release_created: ${{ steps.release.outputs.release_created }}
-      tag_name: ${{ steps.release.outputs.tag_name }}
+      published: ${{ steps.changesets.outputs.published }}
     steps:
-      - id: release
-        uses: googleapis/release-please-action@v5
+      - name: Checkout Repo
+        uses: actions/checkout@v7
         with:
-          config-file: release-please-config.json
-          manifest-file: .release-please-manifest.json
+          # Full history so Changesets can link commits in the changelog
+          fetch-depth: 0
 
-  publish:
-    needs: release-please
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
-    runs-on: ubuntu-latest
-    environment: npm
-    permissions:
-      contents: write # attach the tarball to the GitHub release
-      id-token: write # npm trusted publishing + provenance
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - name: Setup Environment
+        uses: ./.github/actions/setup-node-npm
         with:
           node-version: 24
-          cache: npm
-          registry-url: https://registry.npmjs.org
-      - run: npm install -g npm@latest # trusted publishing needs npm >= 11.5.1
-      - run: npm ci
-      - run: npx playwright install --with-deps --only-shell chromium
-      - run: npm test
-      - run: npm publish # prepublishOnly builds and runs publint + attw
-      - name: Attach tarball to the release
-        run: gh release upload "$TAG" "$(npm pack --silent)"
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.release-please.outputs.tag_name }}
+          registry-url: "https://registry.npmjs.org"
+
+      # npm OIDC trusted publishing requires npm CLI >= 11.5.1
+      - name: Upgrade npm for OIDC trusted publishing
+        run: npm install --global npm@latest
+
+      # Opens/updates the "chore: version packages" PR while changesets are pending,
+      # and publishes to npm + creates the GitHub release once that PR is merged.
+      - name: Create Release Pull Request or Publish to npm
+        id: changesets
+        uses: changesets/action@v2
+        with:
+          publish-script: npm run release
+          version-script: npm run version
+          commit-message: "chore: version packages"
+          pr-title: "chore: version packages"
+          create-github-releases: true
+
+      - name: Publish Release Summary
+        if: steps.changesets.outputs.published == 'true'
+        run: |
+          echo "## Published Packages" >> $GITHUB_STEP_SUMMARY
+          echo '${{ steps.changesets.outputs.published-packages }}' >> $GITHUB_STEP_SUMMARY
+
+  deploy-site:
+    name: Deploy site
+    needs: release
+    if: needs.release.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-node-npm
+
+      # Playground at /, API reference (TypeDoc) at /api/
+      - name: Build site
+        run: npm run build:site
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site/dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
