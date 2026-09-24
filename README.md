@@ -19,7 +19,7 @@
 - **Collapses repeats.** Consecutive identical messages are merged into a single `message (×12)` line.
 - **Fast.** Rendering is virtualized: only the visible lines exist as display objects. They are drawn with `BitmapText` from a single glyph atlas and laid out at most once per frame, so thousands of logs cost the same as a screenful.
 - **Touch friendly.** You can scroll with the wheel or by dragging. The toolbar has per-level filters with counters, a clear button and a close button. It sticks to the newest line until you scroll up.
-- **Opens on errors.** The console shows itself when an error is logged or thrown. Press <kbd>`</kbd> to toggle it.
+- **Opens on errors.** The console shows itself when an error is logged or thrown. Press <kbd>&#96;</kbd> to toggle it.
 - **Fits any screen.** `autoResize` follows the renderer across window resizes and orientation changes.
 - **Tiny and typed.** It has no runtime dependencies besides `pixi.js`, and ships ESM, CommonJS and a `<script>` build with TypeScript types.
 
@@ -50,7 +50,7 @@ console.log("Hello from the canvas!", { answer: 42 });
 devConsole.show(); // it's hidden until shown, toggled with ` or an error happens
 ```
 
-Only enable it in development builds:
+Only enable it in development builds. This example uses Vite's `import.meta.env.DEV`; use your bundler's development flag (e.g. `process.env.NODE_ENV !== "production"`) elsewhere:
 
 ```ts
 if (import.meta.env.DEV) {
@@ -86,8 +86,12 @@ devConsole.resize(800, 400); // later, re-wraps text
 ```html
 <script src="https://cdn.jsdelivr.net/npm/pixi.js@8/dist/pixi.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pixi-console@5"></script>
-<script>
-  const devConsole = new PixiConsole.PixiConsole({ visible: true });
+<script type="module">
+  const app = new PIXI.Application();
+  await app.init({ resizeTo: window });
+  document.body.appendChild(app.canvas);
+
+  const devConsole = new PixiConsole.PixiConsole({ visible: true, autoResize: { renderer: app.renderer } });
   app.stage.addChild(devConsole);
 </script>
 ```

@@ -327,6 +327,11 @@ input:focus-visible {
     color: var(--text);
 }
 
+.segmented label:has(input:focus-visible) {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
 .segmented input {
     position: absolute;
     opacity: 0;

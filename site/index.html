@@ -156,8 +156,13 @@ console.log(<span class="tok-string">"Hello from the canvas!"</span>);</code></p
                         class="code"
                     ><code>&lt;<span class="tok-keyword">script</span> src=<span class="tok-string">"https://cdn.jsdelivr.net/npm/pixi.js@8/dist/pixi.min.js"</span>&gt;&lt;/<span class="tok-keyword">script</span>&gt;
 &lt;<span class="tok-keyword">script</span> src=<span class="tok-string">"https://cdn.jsdelivr.net/npm/pixi-console@5"</span>&gt;&lt;/<span class="tok-keyword">script</span>&gt;
-&lt;<span class="tok-keyword">script</span>&gt;
-    <span class="tok-keyword">const</span> devConsole = <span class="tok-keyword">new</span> <span class="tok-type">PixiConsole</span>.<span class="tok-type">PixiConsole</span>();
+&lt;<span class="tok-keyword">script</span> type=<span class="tok-string">"module"</span>&gt;
+    <span class="tok-keyword">const</span> app = <span class="tok-keyword">new</span> <span class="tok-type">PIXI</span>.<span class="tok-type">Application</span>();
+    <span class="tok-keyword">await</span> app.init({ resizeTo: window });
+    document.body.appendChild(app.canvas);
+
+    <span class="tok-keyword">const</span> devConsole = <span class="tok-keyword">new</span> <span class="tok-type">PixiConsole</span>.<span class="tok-type">PixiConsole</span>({ visible: <span class="tok-keyword">true</span> });
+    app.stage.addChild(devConsole);
 &lt;/<span class="tok-keyword">script</span>&gt;</code></pre>
                     <p class="muted">
                         Every option, method and type is documented in the <a href="./api/">API reference</a>. Coming

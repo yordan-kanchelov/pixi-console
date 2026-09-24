@@ -13,6 +13,17 @@ describe("formatArgs", () => {
         expect(formatArgs(["100%% done", "!"])).toBe("100% done !");
     });
 
+    it("prints NaN for numeric specifiers that cannot convert", () => {
+        const throwing = {
+            valueOf(): number {
+                throw new Error("nope");
+            },
+        };
+
+        expect(formatArgs(["%d %i %f", Symbol("s"), Object.create(null), throwing])).toBe("NaN NaN NaN");
+        expect(formatArgs(["%d", 10n])).toBe("10n");
+    });
+
     it("drops %c styling arguments", () => {
         expect(formatArgs(["%cstyled", "color: red", "tail"])).toBe("styled tail");
     });
@@ -87,6 +98,28 @@ describe("formatValue", () => {
         error.stack = "TypeError: boom\n    at foo (app.js:1:1)\n    at bar (app.js:2:2)";
 
         expect(formatValue(error)).toBe("TypeError: boom\n    at foo (app.js:1:1)\n    at bar (app.js:2:2)");
+    });
+
+    it("drops the V8 header of errors without a message", () => {
+        const error = new Error();
+        error.stack = "Error\n    at foo (app.js:1:1)";
+
+        expect(formatValue(error)).toBe("Error\n    at foo (app.js:1:1)");
+    });
+
+    it("drops a V8 header that no longer matches the error name", () => {
+        const error = new Error("boom");
+        error.name = "CustomError";
+        error.stack = "Error: boom\n    at foo (app.js:1:1)";
+
+        expect(formatValue(error)).toBe("CustomError: boom\n    at foo (app.js:1:1)");
+    });
+
+    it("keeps multi-line messages out of the frames", () => {
+        const error = new Error("line one\nline two");
+        error.stack = "Error: line one\nline two\n    at foo (app.js:1:1)";
+
+        expect(formatValue(error)).toBe("Error: line one\nline two\n    at foo (app.js:1:1)");
     });
 
     it("normalizes Firefox-style stacks", () => {

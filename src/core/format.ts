@@ -56,9 +56,9 @@ function substitute(template: string, args: unknown[], opts: FormatOptions): str
                 return typeof arg === "string" ? arg : inspect(arg, { ...opts, depth: 0 }, 0, new WeakSet());
             case "d":
             case "i":
-                return typeof arg === "bigint" ? `${arg}n` : String(Math.trunc(Number(arg)));
+                return typeof arg === "bigint" ? `${arg}n` : String(Math.trunc(toNumber(arg)));
             case "f":
-                return String(Number(arg));
+                return String(toNumber(arg));
             case "c":
                 // CSS styling has no meaning on canvas, swallow the argument.
                 return "";
@@ -148,20 +148,34 @@ function inspect(value: unknown, opts: FormatOptions, level: number, seen: WeakS
 }
 
 function formatError(error: Error): string {
-    const header = `${error.name}: ${error.message}`;
+    const header = error.message ? `${error.name}: ${error.message}` : error.name;
     const stack = typeof error.stack === "string" ? error.stack.trim() : "";
 
     if (!stack) return header;
 
-    // V8 stacks start with the header, Firefox/Safari stacks do not.
-    const frames = stack.startsWith(header) ? stack.slice(header.length).replace(/^\n/, "") : stack;
-    const lines = frames
-        .split("\n")
+    // V8 stacks start with a header (possibly multi-line, possibly without ": message") before the
+    // first indented "at" frame. Firefox/Safari stacks have no header and no "at" prefix.
+    const rawLines = stack.split("\n");
+    let firstFrame = rawLines.findIndex((line) => /^\s+at /.test(line));
+
+    if (firstFrame < 0) firstFrame = stack.startsWith(header) ? header.split("\n").length : 0;
+
+    const lines = rawLines
+        .slice(firstFrame)
         .map((line) => line.trim())
         .filter(Boolean)
         .map((line) => `    ${line.startsWith("at ") ? line : `at ${line}`}`);
 
     return lines.length ? `${header}\n${lines.join("\n")}` : header;
+}
+
+/** `Number()` that never throws (symbols, objects without a primitive value, throwing `valueOf`). */
+function toNumber(value: unknown): number {
+    try {
+        return Number(value);
+    } catch {
+        return Number.NaN;
+    }
 }
 
 function constructorName(obj: object): string | undefined {
