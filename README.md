@@ -1,8 +1,5 @@
 # pixi-console
 
-[![npm](https://img.shields.io/npm/v/pixi-console?color=ff4f9a)](https://www.npmjs.com/package/pixi-console)
-[![license](https://img.shields.io/npm/l/pixi-console)](./LICENSE)
-
 **An in-canvas developer console for PixiJS v8.** It shows `console.log`, warnings and uncaught errors on top of your scene, so you can debug on phones, tablets and TVs without devtools.
 
 ### [▶ Live preview](https://yordan-kanchelov.github.io/pixi-console/) · [API reference](https://yordan-kanchelov.github.io/pixi-console/api/)
