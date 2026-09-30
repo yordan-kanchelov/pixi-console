@@ -118,9 +118,10 @@ describe("interceptConsole", () => {
     });
 
     it("reports a listener failure through console.error, whatever the method", () => {
-        const nativeClear = vi.fn();
-        const nativeDebug = vi.fn();
-        const nativeError = vi.fn();
+        const calls: string[] = [];
+        const nativeClear = vi.fn(() => calls.push("clear"));
+        const nativeDebug = vi.fn(() => calls.push("debug"));
+        const nativeError = vi.fn(() => calls.push("error"));
         console.clear = nativeClear;
         console.debug = nativeDebug;
         console.error = nativeError;
@@ -138,8 +139,32 @@ describe("interceptConsole", () => {
         expect(nativeDebug).toHaveBeenCalledWith("hidden by default");
         expect(nativeError).toHaveBeenCalledTimes(2);
         expect(nativeError).toHaveBeenCalledWith("[pixi-console] listener failed", failure);
+        // After the original call: the native clear() would wipe a report made before it.
+        expect(calls).toEqual(["clear", "error", "debug", "error"]);
 
         stop();
+    });
+
+    it("stops dispatching even when reporting a listener failure throws", () => {
+        const { error } = console;
+        console.error = vi.fn(() => {
+            throw new Error("error() is broken too");
+        });
+        const listener = vi.fn(() => {
+            throw new Error("broken");
+        });
+        const stop = interceptConsole(["log"], listener);
+
+        try {
+            expect(() => console.log("x")).toThrow("error() is broken too");
+            expect(nativeLog).toHaveBeenCalledWith("x");
+
+            expect(() => console.log("y")).toThrow("error() is broken too");
+            expect(listener).toHaveBeenCalledTimes(2);
+        } finally {
+            stop();
+            console.error = error;
+        }
     });
 
     it("does not notify listeners of its own failure report", () => {
@@ -253,6 +278,20 @@ describe("interceptGlobalErrors", () => {
         );
 
         expect(listener).toHaveBeenCalledWith("null (a.js:1:1)", "error");
+
+        // What Firefox dispatches for `throw null`.
+        listeners.get("error")!(
+            new ErrorEvent("error", {
+                message: "uncaught exception: null",
+                error: null,
+                filename: "a.js",
+                lineno: 1,
+                colno: 1,
+            }),
+        );
+
+        expect(listener).toHaveBeenLastCalledWith("null (a.js:1:1)", "error");
+        expect(listener).toHaveBeenCalledTimes(2);
         stop();
     });
 

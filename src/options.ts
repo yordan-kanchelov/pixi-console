@@ -2,7 +2,6 @@ import type { ColorSource, Rectangle, Renderer } from "pixi.js";
 
 import type { CommandHandler, ConsoleCommand, ConsoleEvaluator } from "./core/commands";
 import { DEFAULT_FORMAT_OPTIONS, numberOr, resolveFormatOptions, type FormatOptions } from "./core/format";
-import { DEFAULT_MAX_ENTRIES } from "./core/store";
 import { LOG_LEVELS, type LogLevel } from "./core/types";
 
 /** Position and size of the console, as returned by {@link AutoResizeOptions.layout}. */
@@ -114,7 +113,7 @@ export interface PixiConsoleOptions {
     /**
      * `KeyboardEvent.code` or `KeyboardEvent.key` that toggles the console, or `null` to disable.
      * Ignored while typing in a text field. With {@link prompt}, opening the console with it focuses
-     * the command line.
+     * the command line when nothing else on the page has focus.
      * @default "Backquote"
      */
     toggleKey: string | null;
@@ -124,10 +123,11 @@ export interface PixiConsoleOptions {
     /**
      * Show a command line under the log. Entering a line runs a {@link commands | command} or, when
      * no command matches, the {@link evaluator}. It is a native `<input>` placed over the canvas, so
-     * on-screen keyboards, IME, autocorrect and paste work as usual. Keys typed into it do not reach
-     * `window` keydown listeners: they neither toggle the console nor move your game. Opening the
-     * console with {@link toggleKey} focuses it. Needs pixi.js 8.7+ or {@link autoResize} to find
-     * the canvas. Can be changed later via {@link PixiConsole.prompt}.
+     * on-screen keyboards, IME and paste work as usual (autocorrect and autocapitalize are off). Keys
+     * typed into it don't reach your game's `keydown` listeners (capture-phase ones still see them)
+     * or the {@link toggleKey}; `keyup` still does, so no key gets stuck. Opening the console with
+     * {@link toggleKey} focuses it when nothing else on the page has focus. Needs pixi.js 8.7+ or
+     * {@link autoResize} to find the canvas. Can be changed later via {@link PixiConsole.prompt}.
      * @default false
      */
     prompt: boolean;
@@ -168,7 +168,7 @@ export const DEFAULT_OPTIONS: Readonly<PixiConsoleOptions> = {
     captureClear: true,
     showOnError: true,
     filter: LOG_LEVELS,
-    maxEntries: DEFAULT_MAX_ENTRIES,
+    maxEntries: 1000,
     collapseRepeats: true,
     timestamps: false,
     // A copy, so that mutating one of them never changes the other.

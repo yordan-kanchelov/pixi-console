@@ -282,7 +282,11 @@ function formatError(error: object, opts: InspectOptions, level: number, seen: W
     try {
         let keys: string[] = [];
         try {
-            keys = Object.keys(error).filter((key) => !ERROR_KEYS.has(key));
+            // An own `errors` that is not an array (per-field validation errors...) is not printed
+            // by the AggregateError block below, so it is printed as a property.
+            keys = Object.keys(error).filter(
+                (key) => !ERROR_KEYS.has(key) || (key === "errors" && !Array.isArray(safeGet(error, key))),
+            );
         } catch {
             // Print the error without its extra properties.
         }
@@ -362,12 +366,15 @@ function formatFrames(stack: string, header: string): string {
         .join("");
 }
 
+/** Holes probed one by one before {@link arrayItems} lists the indices of the elements instead. */
+const HOLE_PROBE_LIMIT = 1024;
+
 /** Array items with runs of holes shown as `<N empty items>`, like the browser console. */
 function arrayItems(array: readonly unknown[], max: number, map: (item: unknown) => string): string[] {
     const out: string[] = [];
     const length = array.length;
     const count = Math.max(0, Math.floor(max));
-    /** Indices of the elements that exist, looked up once the first hole is found. */
+    /** Indices of the elements that exist, looked up once a long run of holes is found. */
     let present: number[] | undefined;
     let next = 0;
     let index = 0;
@@ -379,15 +386,24 @@ function arrayItems(array: readonly unknown[], max: number, map: (item: unknown)
             continue;
         }
 
-        // Jump to the next element instead of probing each index: `new Array(1e9)` is one hole.
-        present ??= Object.keys(array)
-            .filter((key) => /^(0|[1-9]\d*)$/.test(key))
-            .map(Number)
-            .sort((a, b) => a - b);
+        // Short runs (one `delete` in a huge array) are cheapest to probe: listing the indices
+        // would read every one of them.
+        let end = index + 1;
+        while (end < length && end - index < HOLE_PROBE_LIMIT && !Object.hasOwn(array, end)) end++;
 
-        while (next < present.length && (present[next] ?? length) <= index) next++;
+        if (end < length && end - index >= HOLE_PROBE_LIMIT) {
+            // Jump to the next element instead of probing each index: `new Array(1e9)` is one hole.
+            // Sorted, as a proxy can list its keys in any order.
+            present ??= Object.keys(array)
+                .filter((key) => /^(0|[1-9]\d*)$/.test(key))
+                .map(Number)
+                .sort((a, b) => a - b);
 
-        const end = Math.min(present[next] ?? length, length);
+            while (next < present.length && (present[next] ?? length) <= index) next++;
+
+            end = Math.min(present[next] ?? length, length);
+        }
+
         const holes = end - index;
 
         out.push(`<${holes} empty item${holes === 1 ? "" : "s"}>`);
@@ -454,20 +470,26 @@ function toStringTag(obj: object): string {
     }
 }
 
-/** Output for a value whose inspection threw. */
+/** Output for a value whose inspection threw. Never throws, even at the stack limit. */
 function unformattable(obj: object, error: unknown): string {
-    const reason = describeError(error);
-
-    if (/revoked/i.test(reason)) return "[Proxy (revoked)]";
-
-    let name: string | undefined;
     try {
-        name = constructorName(obj);
-    } catch {
-        // The prototype chain itself is broken, keep the generic name.
-    }
+        const reason = describeError(error);
 
-    return `[${name ?? "Object"} <unformattable: ${reason}>]`;
+        // Every engine throws a TypeError mentioning "revoked" for revoked proxies. Other errors can
+        // quote the word too, e.g. V8's SyntaxError for a regexp that it compiles at the stack limit.
+        if (error instanceof TypeError && reason.includes("revoked")) return "[Proxy (revoked)]";
+
+        let name: string | undefined;
+        try {
+            name = constructorName(obj);
+        } catch {
+            // The prototype chain itself is broken, keep the generic name.
+        }
+
+        return `[${name ?? "Object"} <unformattable: ${reason}>]`;
+    } catch {
+        return "[Object <unformattable: unknown error>]";
+    }
 }
 
 /** Last resort for a whole argument: one bad value never costs the others. */

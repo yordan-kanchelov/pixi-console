@@ -32,6 +32,7 @@ describe("resolveOptions", () => {
     });
 
     it("falls back to the defaults for NaN and non-number limits, but keeps Infinity", () => {
+        expect(DEFAULT_OPTIONS.maxEntries).toBe(1000);
         expect(resolveOptions({ maxEntries: Number.NaN }).maxEntries).toBe(DEFAULT_OPTIONS.maxEntries);
         expect(resolveOptions({ maxEntries: "5" as unknown as number }).maxEntries).toBe(DEFAULT_OPTIONS.maxEntries);
         expect(resolveOptions({ maxEntries: Infinity }).maxEntries).toBe(Infinity);

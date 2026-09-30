@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { DEFAULT_MAX_ENTRIES, LogStore } from "../src/core/store";
+import { LogStore } from "../src/core/store";
 
 describe("LogStore", () => {
     it("stores entries with increasing ids and counts per level", () => {
@@ -111,16 +111,6 @@ describe("LogStore", () => {
 
         expect(store.entries.map((e) => e.message)).toEqual(["a", "b"]);
         expect(store.counts).toMatchObject({ error: 0, log: 2 });
-    });
-
-    it("falls back to the default limit when maxEntries is NaN", () => {
-        const store = new LogStore({ maxEntries: Number.NaN, collapseRepeats: false });
-
-        for (let i = 0; i < DEFAULT_MAX_ENTRIES + 5; i++) store.add("log", String(i));
-
-        expect(store.entries).toHaveLength(DEFAULT_MAX_ENTRIES);
-        expect(store.counts.log).toBe(DEFAULT_MAX_ENTRIES);
-        expect(store.entries[0]?.message).toBe("5");
     });
 
     it("keeps at least one entry and whole numbers of them", () => {

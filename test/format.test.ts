@@ -309,6 +309,30 @@ describe("formatValue", () => {
             expect(formatValue([1, , , 4, 5], { maxItems: 2 })).toBe("[1, <2 empty items>, ... 2 more]");
             expect(formatValue(new Array(1e9))).toBe("[<1000000000 empty items>]");
         });
+
+        it("does not list the indices of a huge array to skip a short run of holes", () => {
+            const tiles = Array.from({ length: 1e6 }, (_, i) => i);
+            // eslint-disable-next-line @typescript-eslint/no-array-delete -- the hole is the point of the test
+            delete tiles[3];
+            const ownKeys = vi.fn(Reflect.ownKeys);
+            const counted = new Proxy(tiles, { ownKeys });
+
+            expect(formatValue(counted, { maxItems: 5 })).toBe("[0, 1, 2, <1 empty item>, 4, ... 999995 more]");
+            expect(ownKeys).not.toHaveBeenCalled();
+        });
+
+        it("still jumps over long runs of holes, whatever order the keys come in", () => {
+            const sparse: unknown[] = [];
+            sparse[0] = "a";
+            sparse[1500] = "b";
+            sparse[1502] = "c";
+            sparse.length = 3000;
+            const reversed = new Proxy(sparse, { ownKeys: (target) => Reflect.ownKeys(target).reverse() });
+            const expected = '["a", <1499 empty items>, "b", <1 empty item>, "c", <1497 empty items>]';
+
+            expect(formatValue(sparse)).toBe(expected);
+            expect(formatValue(reversed)).toBe(expected);
+        });
     });
 
     describe("exotic values", () => {
@@ -378,10 +402,32 @@ describe("formatValue", () => {
             let deep: Record<string, unknown> = {};
             for (let i = 0; i < 100_000; i++) deep = { deep };
 
-            const message = formatArgs(["deep", deep], { depth: Infinity, maxLength: 0 });
+            // Several runs, so the result doesn't depend on what earlier tests warmed up: an error
+            // raised at the stack limit (e.g. while compiling a regexp) must not change the label.
+            for (let run = 0; run < 3; run++) {
+                const message = formatArgs(["deep", deep], { depth: Infinity, maxLength: 0 });
 
-            expect(message.startsWith("deep { deep: { deep: ")).toBe(true);
-            expect(message).toContain("<unformattable: ");
+                expect(message.startsWith("deep { deep: { deep: ")).toBe(true);
+                expect(message).toContain("<unformattable: ");
+                expect(message).not.toContain("[Proxy (revoked)]");
+            }
+        });
+
+        it("labels only TypeErrors about revoked proxies as revoked proxies", () => {
+            const throwing = (error: Error) =>
+                new Proxy(
+                    {},
+                    {
+                        getPrototypeOf() {
+                            throw error;
+                        },
+                    },
+                );
+
+            expect(
+                formatValue(throwing(new SyntaxError("Invalid regular expression: /revoked/: Stack overflow"))),
+            ).toBe("[Object <unformattable: Invalid regular expression: /revoked/: Stack overflow>]");
+            expect(formatValue(throwing(new TypeError("proxy has been revoked")))).toBe("[Proxy (revoked)]");
         });
 
         it("survives a throwing Symbol.toStringTag and function name", () => {
@@ -477,6 +523,19 @@ describe("formatValue errors", () => {
         const error = withStack(Object.assign(new Error("e"), { code: "E_X" }), "Error: e\n    at f (a.js:1:1)");
 
         expect(formatValue(error)).toBe('Error: e\n    at f (a.js:1:1) { code: "E_X" }');
+    });
+
+    it("prints an own errors property that is not an array like any other property", () => {
+        const validation = withStack(
+            Object.assign(new Error("Validation failed"), { errors: { email: "is invalid" }, code: 422 }),
+            "Error: Validation failed\n    at x (a.js:1:1)",
+        );
+        const listed = withStack(Object.assign(new Error("many"), { errors: ["a"] }), "Error: many");
+
+        expect(formatValue(validation)).toBe(
+            'Error: Validation failed\n    at x (a.js:1:1) { errors: { email: "is invalid" }, code: 422 }',
+        );
+        expect(formatValue(listed)).toBe('Error: many\n  [0]: "a"');
     });
 
     it("does not take message lines that look like frames for frames", () => {

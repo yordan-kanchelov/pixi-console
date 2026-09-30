@@ -79,6 +79,8 @@ function patch(level: InterceptedMethod): void {
         // must reach the original method without notifying listeners again.
         if (dispatching) return original.apply(this ?? console, args);
 
+        const failures: unknown[] = [];
+
         dispatching = true;
         try {
             for (const subscription of subscriptions) {
@@ -86,15 +88,20 @@ function patch(level: InterceptedMethod): void {
                 try {
                     subscription.listener(level, args);
                 } catch (error) {
-                    // Not through `original`: clear() would drop the report and debug() is hidden by
-                    // default. `dispatching` is set, so our own patch forwards it without notifying.
-                    console.error("[pixi-console] listener failed", error);
+                    failures.push(error);
                 }
             }
 
             return original.apply(this ?? console, args);
         } finally {
-            dispatching = false;
+            try {
+                // Through console.error, not `original`: debug() is hidden by default and clear() prints
+                // nothing. After the original call, so that clear() does not wipe the report.
+                // `dispatching` is still set, so our own patch forwards it without notifying.
+                for (const error of failures) console.error("[pixi-console] listener failed", error);
+            } finally {
+                dispatching = false;
+            }
         }
     };
 
@@ -136,8 +143,9 @@ export function interceptGlobalErrors(listener: GlobalErrorListener): () => void
         if (message.startsWith("ResizeObserver loop")) return;
 
         const location = event.filename ? ` (${event.filename}:${event.lineno}:${event.colno})` : "";
-        // `throw null` yields message "Uncaught null"; the console adds its own "Uncaught".
-        const text = message.replace(/^Uncaught\s+/, "");
+        // `throw null` yields message "Uncaught null" (Chrome) or "uncaught exception: null" (Firefox);
+        // the console adds its own "Uncaught".
+        const text = message.replace(/^uncaught(?: exception:)?\s+/i, "");
 
         listener(`${text}${location}${message === "Script error." ? CROSS_ORIGIN_HINT : ""}`, "error");
     };

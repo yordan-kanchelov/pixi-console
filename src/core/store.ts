@@ -2,9 +2,6 @@ import type { ColorSource } from "pixi.js";
 
 import { LOG_LEVELS, type EntryKind, type LogEntry, type LogLevel } from "./types";
 
-/** Default of {@link StoreOptions.maxEntries}, also used when it is `NaN`. */
-export const DEFAULT_MAX_ENTRIES = 1000;
-
 /** A captured entry as stored by the console. */
 export interface StoredEntry extends LogEntry {
     /** How many consecutive identical messages this entry represents. */
@@ -14,6 +11,7 @@ export interface StoredEntry extends LogEntry {
 }
 
 export interface StoreOptions {
+    /** Floored, and at least 1. Never `NaN`: the options fall back to the default for it. */
     maxEntries: number;
     collapseRepeats: boolean;
 }
@@ -82,10 +80,7 @@ export class LogStore {
 
     /** Drops the oldest entries above `maxEntries`. */
     trim(): void {
-        const { maxEntries } = this.options;
-        // A NaN limit would never trim, so the history would grow without bound.
-        const max = Number.isNaN(maxEntries) ? DEFAULT_MAX_ENTRIES : Math.max(1, Math.floor(maxEntries));
-        const excess = this.entries.length - max;
+        const excess = this.entries.length - Math.max(1, Math.floor(this.options.maxEntries));
 
         if (excess <= 0) return;
 
