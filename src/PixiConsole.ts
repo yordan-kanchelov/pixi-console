@@ -217,6 +217,8 @@ export class PixiConsole extends Container {
     private _unhookErrors?: () => void;
     private _removeKeyListener?: () => void;
     private _removeAutoResize?: () => void;
+    /** Follows the screen size on pixi.js 8.0, whose renderers emit no `resize` event. */
+    private _pollAutoResize?: () => void;
     private _removeCancelListener?: () => void;
     private _removePressListener?: () => void;
     private _removeFocusGuard?: () => void;
@@ -500,6 +502,21 @@ export class PixiConsole extends Container {
         };
 
         this._renderer ??= renderer;
+
+        // pixi.js 8.0 renderers are not event emitters: check the screen size every frame instead.
+        if (typeof (renderer as { on?: unknown }).on !== "function") {
+            let { width, height } = renderer.screen;
+
+            this._pollAutoResize = () => {
+                if (renderer.screen.width === width && renderer.screen.height === height) return;
+                ({ width, height } = renderer.screen);
+                apply();
+            };
+            this._removeAutoResize = () => (this._pollAutoResize = undefined);
+            apply();
+
+            return;
+        }
 
         renderer.on("resize", apply);
         this._removeAutoResize = () => renderer.off("resize", apply);
@@ -989,6 +1006,8 @@ export class PixiConsole extends Container {
         const toScreen = renderer ? drawsToCanvas(renderer) : true;
 
         if (renderer && toScreen) this._renderer = renderer;
+
+        this._pollAutoResize?.();
 
         // Hidden, also by a parent: skip the work. Layout catches up once shown, with at most
         // `maxEntries` entries.

@@ -163,10 +163,10 @@ Lines then run much like in the devtools console:
 - `await` works at the top level when the line is a single expression, like `await Assets.load(url)`. Any other line with an `await`, like `var tex = await …`, runs inside an async function: its result is `undefined` and its declarations don't persist. Write `globalThis.tex = await …` to keep a value.
 - Pasted lines are joined into one, so a `//` comment hides the rest of the paste.
 
-To reach the variables of one of your modules instead, write the evaluator in that module. A direct `eval` sees them, and `$_` too:
+To reach the variables of one of your modules instead, write the evaluator in that module. A direct `eval` sees them (but not `$_` or `scope`, which only `createJsEvaluator` provides):
 
 ```ts
-evaluator: import.meta.env.DEV ? (line, { lastResult: $_ }) => eval(line) : null,
+evaluator: import.meta.env.DEV ? (line) => eval(line) : null,
 ```
 
 The `DEV` check keeps the `eval`, and your bundler's warning about it, out of production builds.

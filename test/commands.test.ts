@@ -10,6 +10,7 @@ import {
     type CommandContext,
     type ConsoleEvaluator,
 } from "../src/core/commands";
+import { createJsEvaluator } from "../src/core/evaluate";
 import type { PixiConsole } from "../src/PixiConsole";
 
 /** A context whose console only has what the built-in commands use. */
@@ -250,14 +251,19 @@ describe("builtinCommands", () => {
         );
     });
 
-    it("mentions JavaScript only when an evaluator is set", () => {
+    it("mentions JavaScript and $_ only for createJsEvaluator", () => {
         const registry = registryWithBuiltins();
-        const without = builtinCommands().help.run([], stubContext(registry).context) as string;
-        const withEvaluator = builtinCommands().help.run([], stubContext(registry, () => 1).context) as string;
+        const help = (evaluator?: ConsoleEvaluator) =>
+            builtinCommands().help.run([], stubContext(registry, evaluator).context) as string;
+        const without = help();
+        const withJs = help(createJsEvaluator());
+        const withOther = help(() => 1);
 
-        expect(without).not.toContain("JavaScript");
-        expect(withEvaluator.split("\n").at(-1)).toBe("Anything else runs as JavaScript. $_ is the last result.");
-        expect(withEvaluator.startsWith(without)).toBe(true);
+        expect(without).not.toContain("Anything else");
+        expect(withJs.split("\n").at(-1)).toBe("Anything else runs as JavaScript. $_ is the last result.");
+        expect(withOther.split("\n").at(-1)).toBe("Anything else goes to the evaluator.");
+        expect(withJs.startsWith(without)).toBe(true);
+        expect(withOther.startsWith(without)).toBe(true);
     });
 
     it("describes one command, case-insensitively", () => {

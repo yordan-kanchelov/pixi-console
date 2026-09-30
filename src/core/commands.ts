@@ -34,6 +34,9 @@ export interface ConsoleCommand {
  */
 export type ConsoleEvaluator = (line: string, context: CommandContext) => unknown;
 
+/** Evaluators made by {@link createJsEvaluator}, so `help` only promises `$_` where it exists. */
+export const jsEvaluators = new WeakSet<ConsoleEvaluator>();
+
 /** Valid command names: one word starting with a letter. No dots, so `foo.bar` always goes to the evaluator. */
 export const COMMAND_NAME = /^[a-z][\w:-]*$/i;
 
@@ -161,7 +164,13 @@ export function builtinCommands(): Record<"help" | "clear", ConsoleCommand> {
                     description ? `${head.padEnd(width)}  ${description}` : head,
                 );
 
-                if (pixiConsole.evaluator) lines.push("Anything else runs as JavaScript. $_ is the last result.");
+                const { evaluator } = pixiConsole;
+
+                if (evaluator && jsEvaluators.has(evaluator)) {
+                    lines.push("Anything else runs as JavaScript. $_ is the last result.");
+                } else if (evaluator) {
+                    lines.push("Anything else goes to the evaluator.");
+                }
 
                 return ["Commands:", ...lines].join("\n");
             },

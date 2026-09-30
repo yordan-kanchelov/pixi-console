@@ -6,6 +6,7 @@ import {
     Container,
     Graphics,
     Point,
+    Rectangle,
     RenderTexture,
     Text,
     type Renderer,
@@ -474,6 +475,25 @@ describe("PixiConsole", () => {
         } finally {
             app.renderer.resize(800, 600);
         }
+    });
+
+    it("follows the screen size with autoResize when the renderer emits no resize event (pixi.js 8.0)", () => {
+        const screen = new Rectangle(0, 0, 800, 600);
+        const pixiConsole = create({ autoResize: { renderer: { screen } as unknown as Renderer } });
+
+        expect(pixiConsole.consoleWidth).toBe(800);
+
+        screen.width = 500;
+        render();
+
+        expect(pixiConsole.consoleWidth).toBe(500);
+        expect(pixiConsole.consoleHeight).toBe(600);
+
+        pixiConsole.autoResize = null;
+        screen.width = 300;
+        render();
+
+        expect(pixiConsole.consoleWidth).toBe(500);
     });
 
     it("toggles with the toggle key", () => {

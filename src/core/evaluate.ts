@@ -1,4 +1,4 @@
-import type { ConsoleEvaluator } from "./commands";
+import { jsEvaluators, type ConsoleEvaluator } from "./commands";
 
 export interface JsEvaluatorOptions {
     /**
@@ -35,7 +35,7 @@ const SCOPE_KEY = "__pixiConsoleScope__";
  * new PixiConsole({ prompt: true, evaluator: import.meta.env.DEV ? createJsEvaluator({ scope: { app } }) : null });
  */
 export function createJsEvaluator(options: JsEvaluatorOptions = {}): ConsoleEvaluator {
-    return (line, context) => {
+    const evaluator: ConsoleEvaluator = (line, context) => {
         // No prototype: `constructor` or `toString` must not resolve to Object.prototype's through `with`.
         const scope = Object.assign(Object.create(null) as Record<string, unknown>, options.scope, {
             $_: context.lastResult,
@@ -43,6 +43,10 @@ export function createJsEvaluator(options: JsEvaluatorOptions = {}): ConsoleEval
 
         return evaluate(line.trim(), scope);
     };
+
+    jsEvaluators.add(evaluator);
+
+    return evaluator;
 }
 
 /**
