@@ -1,6 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { runInNewContext } from "node:vm";
 
-import { formatArgs, formatValue } from "../src/core/format";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { DEFAULT_FORMAT_OPTIONS, formatArgs, formatValue, resolveFormatOptions } from "../src/core/format";
+
+/** A lone (unpaired) UTF-16 surrogate. */
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+
+afterEach(() => {
+    vi.restoreAllMocks();
+});
 
 describe("formatArgs", () => {
     it("joins arguments with spaces like the browser console", () => {
@@ -37,6 +46,68 @@ describe("formatArgs", () => {
         const message = formatArgs(["x".repeat(100)], { maxLength: 10 });
         expect(message).toHaveLength(10);
         expect(message.endsWith("…")).toBe(true);
+    });
+
+    it("never splits a surrogate pair when truncating", () => {
+        const message = formatArgs(["a" + "😀".repeat(10)], { maxLength: 3 });
+
+        expect(message).toBe("a…");
+        expect(message).not.toMatch(LONE_SURROGATE);
+
+        for (let maxLength = 1; maxLength < 12; maxLength++) {
+            expect(formatArgs(["😀".repeat(10)], { maxLength })).not.toMatch(LONE_SURROGATE);
+        }
+    });
+
+    it("ignores explicitly undefined options", () => {
+        const undefinedOptions = { depth: undefined, indent: undefined, maxItems: undefined, maxLength: undefined };
+
+        expect(formatArgs(["hello world"], { maxLength: undefined })).toBe("hello world");
+        expect(formatArgs(["x".repeat(5000)], undefinedOptions)).toHaveLength(DEFAULT_FORMAT_OPTIONS.maxLength);
+        expect(formatArgs(["%o", { a: { b: { c: { d: 1 } } } }], undefinedOptions)).toBe(
+            "{ a: { b: { c: [Object] } } }",
+        );
+    });
+
+    it("keeps nested strings intact up to the truncation", () => {
+        const long = "x".repeat(10_000);
+        const stringify = vi.spyOn(JSON, "stringify");
+        const message = formatArgs(["value", { s: long }], { maxLength: 100 });
+
+        expect(message).toBe(`value { s: "${long}" }`.slice(0, 99) + "…");
+        for (const [value] of stringify.mock.calls) {
+            if (typeof value === "string") expect(value.length).toBeLessThanOrEqual(101);
+        }
+    });
+
+    it("keeps the other arguments when one cannot be formatted", () => {
+        const { proxy, revoke } = Proxy.revocable({}, {});
+        revoke();
+
+        expect(formatArgs(["before", proxy, { nested: proxy }, "after"])).toBe(
+            "before [Proxy (revoked)] { nested: [Proxy (revoked)] } after",
+        );
+        expect(formatArgs(["%o and %s", proxy, "text"])).toBe("[Proxy (revoked)] and text");
+    });
+});
+
+describe("resolveFormatOptions", () => {
+    it("falls back to the defaults for undefined, NaN and non-number values", () => {
+        expect(resolveFormatOptions()).toEqual(DEFAULT_FORMAT_OPTIONS);
+        expect(
+            resolveFormatOptions({ depth: undefined, indent: Number.NaN, maxItems: "5" as unknown as number }),
+        ).toEqual(DEFAULT_FORMAT_OPTIONS);
+        expect(resolveFormatOptions(null as unknown as undefined)).toEqual(DEFAULT_FORMAT_OPTIONS);
+    });
+
+    it("keeps Infinity as no limit, but not as an indent", () => {
+        expect(
+            resolveFormatOptions({ depth: Infinity, maxItems: Infinity, maxLength: Infinity, indent: Infinity }),
+        ).toEqual({ depth: Infinity, maxItems: Infinity, maxLength: Infinity, indent: DEFAULT_FORMAT_OPTIONS.indent });
+    });
+
+    it("never returns the shared defaults object", () => {
+        expect(resolveFormatOptions()).not.toBe(DEFAULT_FORMAT_OPTIONS);
     });
 });
 
@@ -141,6 +212,294 @@ describe("formatValue", () => {
 
     it("formats dates and null-prototype objects", () => {
         expect(formatValue(new Date(0))).toBe("1970-01-01T00:00:00.000Z");
+        expect(formatValue(new Date(Number.NaN))).toBe("Invalid Date");
         expect(formatValue(Object.create(null))).toBe("[Object: null prototype] {}");
+    });
+
+    it("formats regular expressions and boxed primitives", () => {
+        expect(formatValue({ re: /a+/gi })).toBe("{ re: /a+/gi }");
+        expect(
+            formatValue([new String("ab"), new Number(-0), new Boolean(false), Object(1n), Object(Symbol("s"))]),
+        ).toBe('[[String: "ab"], [Number: -0], [Boolean: false], [BigInt: 1n], [Symbol: Symbol(s)]]');
+    });
+
+    it("ignores explicitly undefined and NaN options", () => {
+        const value = { a: 1, b: { c: { d: { e: 2 } } } };
+
+        expect(formatValue(value, { indent: undefined, depth: undefined })).toBe("{ a: 1, b: { c: { d: [Object] } } }");
+        expect(formatValue(value, { indent: Number.NaN, depth: Number.NaN })).toBe(
+            "{ a: 1, b: { c: { d: [Object] } } }",
+        );
+        expect(formatValue([1, 2, 3], { maxItems: undefined })).toBe("[1, 2, 3]");
+        expect(
+            formatValue(
+                Array.from({ length: 60 }, () => 0),
+                { maxItems: Number.NaN },
+            ),
+        ).toContain("... 10 more");
+    });
+
+    it("treats Infinity as no limit", () => {
+        const deep = { a: { b: { c: { d: { e: 1 } } } } };
+
+        expect(formatValue(deep, { depth: Infinity })).toBe("{ a: { b: { c: { d: { e: 1 } } } } }");
+        expect(
+            formatValue(
+                Array.from({ length: 60 }, () => 0),
+                { maxItems: Infinity },
+            ),
+        ).not.toContain("more");
+        expect(formatArgs(["x".repeat(5000)], { maxLength: Infinity })).toHaveLength(5000);
+    });
+
+    it("does not apply maxLength", () => {
+        expect(formatValue({ s: "x".repeat(50) }, { maxLength: 10 })).toBe(`{ s: "${"x".repeat(50)}" }`);
+    });
+
+    describe("binary data and collections", () => {
+        it("formats typed arrays like arrays", () => {
+            expect(formatValue(new Float32Array([1, 2.5, -0]))).toBe("Float32Array(3) [1, 2.5, -0]");
+            expect(formatValue(new BigInt64Array([1n, -2n]))).toBe("BigInt64Array(2) [1n, -2n]");
+            expect(formatValue(new Uint8Array(4), { maxItems: 2 })).toBe("Uint8Array(4) [0, 0, ... 2 more]");
+            expect(formatValue({ a: { b: { c: new Float32Array(3) } } })).toBe(
+                "{ a: { b: { c: [Float32Array(3)] } } }",
+            );
+
+            class Positions extends Float32Array {}
+            expect(formatValue(new Positions(2))).toBe("Positions(2) [0, 0]");
+        });
+
+        it("formats array buffers and data views by size", () => {
+            expect(formatValue(new ArrayBuffer(8))).toBe("ArrayBuffer { byteLength: 8 }");
+            expect(formatValue(new DataView(new ArrayBuffer(8), 2, 4))).toBe(
+                "DataView { byteLength: 4, byteOffset: 2 }",
+            );
+        });
+
+        it("reads only maxItems elements of a huge typed array", () => {
+            const keys = vi.spyOn(Object, "keys");
+            const big = new Float32Array(1_000_000);
+
+            expect(formatValue({ big }, { maxItems: 3 })).toBe(
+                "{ big: Float32Array(1000000) [0, 0, 0, ... 999997 more] }",
+            );
+            expect(keys.mock.calls.some(([target]) => target === big)).toBe(false);
+        });
+
+        it("iterates only maxItems entries of a huge Map or Set", () => {
+            const map = new Map(Array.from({ length: 10_000 }, (_, i) => [i, i] as const));
+            const set = new Set(map.keys());
+            const mapNext = vi.spyOn(Object.getPrototypeOf(map.entries()) as Iterator<unknown>, "next");
+            const setNext = vi.spyOn(Object.getPrototypeOf(set.values()) as Iterator<unknown>, "next");
+
+            expect(formatValue(map, { maxItems: 2 })).toBe("Map(10000) { 0 => 0, 1 => 1, ... 9998 more }");
+            expect(formatValue(set, { maxItems: 2 })).toBe("Set(10000) { 0, 1, ... 9998 more }");
+            expect(mapNext.mock.calls.length).toBeLessThanOrEqual(3);
+            expect(setNext.mock.calls.length).toBeLessThanOrEqual(3);
+        });
+
+        it("formats sparse arrays with runs of empty items", () => {
+            // eslint-disable-next-line no-sparse-arrays -- the point of the test
+            const holey = [1, , 3];
+
+            expect(formatValue(holey)).toBe("[1, <1 empty item>, 3]");
+            expect(formatValue(new Array(3))).toBe("[<3 empty items>]");
+            expect(formatValue(holey, { indent: 2 })).toBe("[\n  1,\n  <1 empty item>,\n  3\n]");
+            // eslint-disable-next-line no-sparse-arrays -- the point of the test
+            expect(formatValue([1, , , 4, 5], { maxItems: 2 })).toBe("[1, <2 empty items>, ... 2 more]");
+            expect(formatValue(new Array(1e9))).toBe("[<1000000000 empty items>]");
+        });
+    });
+
+    describe("exotic values", () => {
+        it("formats revoked proxies", () => {
+            const { proxy, revoke } = Proxy.revocable({}, {});
+            revoke();
+
+            expect(formatValue(proxy)).toBe("[Proxy (revoked)]");
+            expect(formatValue([proxy])).toBe("[[Proxy (revoked)]]");
+        });
+
+        it("formats built-in subclass prototypes as plain objects", () => {
+            class MyMap extends Map {}
+            class MySet extends Set {}
+            class MyDate extends Date {}
+            class MyRegExp extends RegExp {}
+
+            expect(formatValue(MyMap.prototype)).toBe("Map {}");
+            expect(formatValue(MySet.prototype)).toBe("Set {}");
+            expect(formatValue(MyDate.prototype)).toBe("Date {}");
+            expect(formatValue(MyRegExp.prototype)).toBe("RegExp {}");
+        });
+
+        it("marks objects whose inspection throws", () => {
+            const trap = new Proxy(
+                {},
+                {
+                    getPrototypeOf() {
+                        throw new Error("nope");
+                    },
+                },
+            );
+
+            expect(formatValue({ trap })).toBe("{ trap: [Object <unformattable: nope>] }");
+        });
+
+        it("summarizes objects whose keys cannot be listed", () => {
+            const hidden = new Proxy(
+                {},
+                {
+                    ownKeys() {
+                        throw new Error("no keys");
+                    },
+                },
+            );
+
+            expect(formatValue({ hidden })).toBe("{ hidden: [Object] }");
+        });
+
+        it("survives errors that cannot be described", () => {
+            const { proxy: reason, revoke } = Proxy.revocable({}, {});
+            revoke();
+            const trap = new Proxy(
+                {},
+                {
+                    getPrototypeOf() {
+                        // eslint-disable-next-line @typescript-eslint/only-throw-error -- a thrown value that can't even be inspected
+                        throw reason;
+                    },
+                },
+            );
+
+            expect(formatValue(trap)).toBe("[Object <unformattable: unknown error>]");
+        });
+
+        it("survives structures deeper than the call stack", () => {
+            let deep: Record<string, unknown> = {};
+            for (let i = 0; i < 100_000; i++) deep = { deep };
+
+            const message = formatArgs(["deep", deep], { depth: Infinity, maxLength: 0 });
+
+            expect(message.startsWith("deep { deep: { deep: ")).toBe(true);
+            expect(message).toContain("<unformattable: ");
+        });
+
+        it("survives a throwing Symbol.toStringTag and function name", () => {
+            const tagged = {
+                a: 1,
+                get [Symbol.toStringTag](): string {
+                    throw new Error("tag");
+                },
+            };
+            const fn = Object.defineProperty(() => undefined, "name", {
+                get() {
+                    throw new Error("name");
+                },
+            });
+
+            expect(formatValue(tagged)).toBe("{ a: 1 }");
+            expect(formatValue(fn)).toBe("[Function (anonymous)]");
+        });
+    });
+});
+
+describe("formatValue errors", () => {
+    function withStack<T extends Error>(error: T, stack: string): T {
+        error.stack = stack;
+        return error;
+    }
+
+    it("recognizes errors from another realm", () => {
+        const foreign: unknown = runInNewContext(
+            "const e = new TypeError('x'); e.stack = 'TypeError: x\\n    at f (a.js:1:1)'; e",
+        );
+
+        expect(foreign instanceof Error).toBe(false);
+        expect(formatValue(foreign)).toBe("TypeError: x\n    at f (a.js:1:1)");
+        expect(formatValue(runInNewContext("new Map([[1, new Date(0)]])"))).toBe(
+            "Map(1) { 1 => 1970-01-01T00:00:00.000Z }",
+        );
+    });
+
+    it("prints the cause chain", () => {
+        const inner = withStack(new Error("inner"), "Error: inner\n    at x (a.js:1:1)");
+        const outer = withStack(new Error("outer", { cause: inner }), "Error: outer\n    at y (a.js:2:2)");
+
+        expect(formatValue(outer)).toBe(
+            "Error: outer\n    at y (a.js:2:2)\nCaused by: Error: inner\n    at x (a.js:1:1)",
+        );
+        expect(
+            formatValue(new Error("x", { cause: { code: 1 } }), { depth: 0 })
+                .split("\n")
+                .at(-1),
+        ).toBe("Caused by: [Object]");
+        expect(formatValue(withStack(new Error("x", { cause: "reason" }), "Error: x"))).toBe(
+            'Error: x\nCaused by: "reason"',
+        );
+    });
+
+    it("stops the cause chain at the depth limit and on cycles", () => {
+        const inner = withStack(new Error("inner"), "Error: inner\n    at x (a.js:1:1)");
+        const outer = withStack(new Error("outer", { cause: inner }), "Error: outer");
+        const loop = withStack(new Error("loop"), "Error: loop") as Error & { cause?: unknown };
+        loop.cause = loop;
+
+        expect(formatValue(outer, { depth: 0 })).toBe("Error: outer\nCaused by: [Error: inner]");
+        expect(formatValue(loop)).toBe("Error: loop\nCaused by: [Circular]");
+    });
+
+    it("prints the errors of an AggregateError", () => {
+        const a = withStack(new Error("a"), "Error: a\n    at g (a.js:3:3)");
+        const b = withStack(new TypeError("b"), "TypeError: b");
+        const aggregate = withStack(
+            new AggregateError([a, b, "c"], "many"),
+            "AggregateError: many\n    at f (a.js:4:4)",
+        );
+
+        expect(formatValue(aggregate)).toBe(
+            [
+                "AggregateError: many",
+                "    at f (a.js:4:4)",
+                "  [0]: Error: a",
+                "        at g (a.js:3:3)",
+                "  [1]: TypeError: b",
+                '  [2]: "c"',
+            ].join("\n"),
+        );
+        expect(formatValue(aggregate, { maxItems: 1 }).split("\n").slice(2)).toEqual([
+            "  [0]: Error: a",
+            "        at g (a.js:3:3)",
+            "  ... 2 more",
+        ]);
+    });
+
+    it("prints own enumerable properties", () => {
+        const error = withStack(Object.assign(new Error("e"), { code: "E_X" }), "Error: e\n    at f (a.js:1:1)");
+
+        expect(formatValue(error)).toBe('Error: e\n    at f (a.js:1:1) { code: "E_X" }');
+    });
+
+    it("does not take message lines that look like frames for frames", () => {
+        const error = withStack(
+            new Error("fail:\n    at position 5"),
+            "Error: fail:\n    at position 5\n    at foo (a.js:1:1)",
+        );
+
+        expect(formatValue(error)).toBe("Error: fail:\n    at position 5\n    at foo (a.js:1:1)");
+    });
+
+    it("survives throwing and odd error properties", () => {
+        const error = new Error("boom");
+        Object.defineProperty(error, "stack", {
+            get() {
+                throw new Error("no stack");
+            },
+        });
+
+        expect(formatValue(error)).toBe("Error: boom");
+        expect(formatValue(Object.assign(new Error(), { message: Symbol("m"), stack: undefined }))).toBe(
+            "Error: Symbol(m)",
+        );
+        expect(formatValue(Object.assign(new Error("m"), { name: "", stack: undefined }))).toBe("m");
     });
 });

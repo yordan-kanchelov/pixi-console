@@ -1,6 +1,7 @@
 import type { ColorSource, Rectangle, Renderer } from "pixi.js";
 
-import { DEFAULT_FORMAT_OPTIONS, type FormatOptions } from "./core/format";
+import { DEFAULT_FORMAT_OPTIONS, numberOr, resolveFormatOptions, type FormatOptions } from "./core/format";
+import { DEFAULT_MAX_ENTRIES } from "./core/store";
 import { LOG_LEVELS, type LogLevel } from "./core/types";
 
 /** Position and size of the console, as returned by {@link AutoResizeOptions.layout}. */
@@ -50,7 +51,7 @@ export interface PixiConsoleOptions {
     collapseRepeats: boolean;
     /** Prefix every entry with its time (`HH:MM:SS.mmm`). @default false */
     timestamps: boolean;
-    /** Options for turning logged values into text. */
+    /** Options for turning logged values into text. @default {@link DEFAULT_FORMAT_OPTIONS} */
     format: Partial<FormatOptions>;
 
     /**
@@ -70,7 +71,7 @@ export interface PixiConsoleOptions {
     resolution?: number;
     /** Inner padding in pixels. @default 8 */
     padding: number;
-    /** Text colour per level. */
+    /** Text colour per level. @default {@link DEFAULT_COLORS} */
     colors: Record<LogLevel, ColorSource>;
     /** @default 0x0d1117 */
     backgroundColor: ColorSource;
@@ -90,6 +91,7 @@ export interface PixiConsoleOptions {
     autoResize: AutoResizeOptions | null;
 }
 
+/** Default text colour per level. */
 export const DEFAULT_COLORS: Readonly<Record<LogLevel, ColorSource>> = {
     log: 0xe6edf3,
     info: 0x58a6ff,
@@ -98,6 +100,7 @@ export const DEFAULT_COLORS: Readonly<Record<LogLevel, ColorSource>> = {
     error: 0xff7b72,
 };
 
+/** Default value of every option. */
 export const DEFAULT_OPTIONS: Readonly<PixiConsoleOptions> = {
     width: 800,
     height: 400,
@@ -107,10 +110,11 @@ export const DEFAULT_OPTIONS: Readonly<PixiConsoleOptions> = {
     captureClear: true,
     showOnError: true,
     filter: LOG_LEVELS,
-    maxEntries: 1000,
+    maxEntries: DEFAULT_MAX_ENTRIES,
     collapseRepeats: true,
     timestamps: false,
-    format: DEFAULT_FORMAT_OPTIONS,
+    // A copy, so that mutating one of them never changes the other.
+    format: { ...DEFAULT_FORMAT_OPTIONS },
     textRenderer: "bitmap",
     fontFamily: "Menlo, Consolas, 'DejaVu Sans Mono', 'Liberation Mono', monospace",
     fontSize: 14,
@@ -125,21 +129,27 @@ export const DEFAULT_OPTIONS: Readonly<PixiConsoleOptions> = {
 };
 
 /** Options accepted by the {@link PixiConsole} constructor. Every field is optional. */
-export type PixiConsoleInit = Partial<Omit<PixiConsoleOptions, "colors" | "format">> & {
+export interface PixiConsoleInit extends Partial<Omit<PixiConsoleOptions, "colors" | "format">> {
+    /** Text colour per level. Levels left out keep their colour from {@link DEFAULT_COLORS}. */
     colors?: Partial<Record<LogLevel, ColorSource>>;
+    /** Options for turning logged values into text. Fields left out keep their {@link DEFAULT_FORMAT_OPTIONS | default}. */
     format?: Partial<FormatOptions>;
-};
+}
 
+/**
+ * Fills in `init` over {@link DEFAULT_OPTIONS}, `colors` and `format` field by field. `undefined`
+ * values are ignored at every level, and a `NaN` or non-number `maxEntries` or format limit falls
+ * back to its default (`Infinity` is kept).
+ */
 export function resolveOptions(init: PixiConsoleInit = {}): PixiConsoleOptions {
-    const defined = Object.fromEntries(
-        Object.entries(init as Record<string, unknown>).filter(([, value]) => value !== undefined),
-    ) as PixiConsoleInit;
+    const defined = definedOnly(init);
 
     return {
         ...DEFAULT_OPTIONS,
         ...defined,
-        colors: { ...DEFAULT_COLORS, ...init.colors },
-        format: { ...DEFAULT_FORMAT_OPTIONS, ...init.format },
+        maxEntries: numberOr(defined.maxEntries, DEFAULT_OPTIONS.maxEntries),
+        colors: { ...DEFAULT_COLORS, ...definedOnly(init.colors) },
+        format: resolveFormatOptions(init.format),
     };
 }
 
@@ -148,4 +158,9 @@ export function toLevels(value: boolean | readonly LogLevel[]): LogLevel[] {
     if (value === false) return [];
 
     return LOG_LEVELS.filter((level) => value.includes(level));
+}
+
+/** A copy of `object` without its `undefined` values, so spreading it never overrides a default with `undefined`. */
+function definedOnly<T extends object>(object: T | undefined): Partial<T> {
+    return Object.fromEntries(Object.entries(object ?? {}).filter(([, value]) => value !== undefined)) as Partial<T>;
 }
