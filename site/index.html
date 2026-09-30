@@ -45,8 +45,14 @@
             </section>
 
             <section id="playground" class="playground">
-                <div class="stage-frame">
-                    <div id="stage" class="stage"></div>
+                <div class="stage-column">
+                    <div class="stage-frame">
+                        <div id="stage" class="stage"></div>
+                    </div>
+                    <p id="stage-hint" class="stage-hint">
+                        Tap the <code>&gt;</code> prompt (or press <kbd>`</kbd> to open the console) and type
+                        <code>help</code>.
+                    </p>
                 </div>
                 <aside class="panel">
                     <div id="controls">
@@ -66,7 +72,7 @@
                             <button type="button" data-action="toggle">toggle <kbd>`</kbd></button>
                         </div>
                     </div>
-                    <form id="settings">
+                    <form id="settings" autocomplete="off">
                         <h2>Options</h2>
                         <fieldset class="segmented">
                             <legend>textRenderer</legend>
@@ -78,6 +84,8 @@
                             ><input type="checkbox" name="collapseRepeats" checked /> collapseRepeats</label
                         >
                         <label class="switch"><input type="checkbox" name="toolbar" checked /> toolbar</label>
+                        <label class="switch"><input type="checkbox" name="prompt" checked /> prompt</label>
+                        <label class="switch"><input type="checkbox" name="evaluator" checked /> evaluate JS</label>
                     </form>
                     <pre class="code snippet"><code id="snippet"></code></pre>
                 </aside>
@@ -127,6 +135,15 @@
                     <p>
                         Zero runtime dependencies besides <code>pixi.js</code>. Ships ESM, CommonJS and a
                         <code>&lt;script&gt;</code> build with full TypeScript types.
+                    </p>
+                </article>
+                <article class="feature-wide">
+                    <h3>Command line</h3>
+                    <p>
+                        Turn on <code>prompt</code> to run commands on the device itself. <code>help</code> and
+                        <code>clear</code> are built in, <code>addCommand()</code> adds your own, and
+                        <code>createJsEvaluator()</code> runs JavaScript in development builds. It's a real text field
+                        over the canvas, so phone keyboards, IME and paste just work.
                     </p>
                 </article>
             </section>

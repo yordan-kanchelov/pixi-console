@@ -1,7 +1,7 @@
 import "./style.css";
 
 import { Application, VERSION } from "pixi.js";
-import { PixiConsole, type LogLevel } from "pixi-console";
+import { createJsEvaluator, PixiConsole, type ConsoleCommand, type LogLevel } from "pixi-console";
 
 import { createScene } from "./scene";
 
@@ -20,7 +20,13 @@ interface Settings {
     timestamps: boolean;
     collapseRepeats: boolean;
     toolbar: boolean;
+    prompt: boolean;
+    /** Whether lines that aren't commands run as JavaScript. */
+    evaluator: boolean;
 }
+
+/** Settings the console can change at runtime, through the setter of the same name. */
+type RuntimeSetting = Exclude<keyof Settings, "textRenderer">;
 
 async function startPlayground(): Promise<void> {
     const host = document.querySelector<HTMLElement>("#stage");
@@ -43,28 +49,93 @@ async function startPlayground(): Promise<void> {
         updateScene((elapsed += ticker.deltaMS));
     });
 
-    const settings: Settings = { textRenderer: "bitmap", timestamps: false, collapseRepeats: true, toolbar: true };
+    const settings: Settings = {
+        textRenderer: "bitmap",
+        timestamps: false,
+        collapseRepeats: true,
+        toolbar: true,
+        prompt: true,
+        evaluator: true,
+    };
+    const evaluator = createJsEvaluator({ scope: { app } });
+    const commands: Record<string, ConsoleCommand> = {
+        speed: {
+            usage: "[multiplier]",
+            description: "Shows or sets the animation speed",
+            run: ([multiplier]) => {
+                if (multiplier === undefined) return `Speed is ${app.ticker.speed}`;
+
+                const speed = Number(multiplier);
+
+                if (!Number.isFinite(speed) || speed < 0) throw new RangeError(`"${multiplier}" is not a speed`);
+
+                app.ticker.speed = speed;
+
+                return `Speed set to ${speed}`;
+            },
+        },
+        fps: { description: "Shows the frame rate", run: () => app.ticker.FPS.toFixed(1) },
+        boom: {
+            description: "Throws an error",
+            run: () => {
+                throw new Error("Boom! Commands can fail too");
+            },
+        },
+    };
     let pixiConsole: PixiConsole | undefined;
 
+    // Only the text renderer can't change at runtime, so changing it creates a new console. That one
+    // takes over what the old one showed (with fresh timestamps), its filter and its command history.
     const mount = () => {
-        const history = pixiConsole?.entries.map(({ level, message }) => ({ level, message })) ?? [];
+        const previous = pixiConsole;
+        const entries = [...(previous?.entries ?? [])];
+        const history = previous?.history ?? [];
 
-        pixiConsole?.destroy();
+        previous?.destroy();
         pixiConsole = new PixiConsole({
             visible: true,
             ...settings,
+            evaluator: settings.evaluator ? evaluator : null,
+            commands,
+            filter: previous?.filter,
             autoResize: { renderer: app.renderer, layout: consoleLayout },
         });
         app.stage.addChild(pixiConsole);
 
-        for (const { level, message } of history) pixiConsole[level](message);
+        for (const { level, message, color, count } of entries) {
+            // Repeated, so collapsed entries collapse again. "%s" keeps a "%" in the message as it is.
+            for (let i = 0; i < count; i++) {
+                if (color === undefined) pixiConsole[level]("%s", message);
+                else pixiConsole.print(message, color);
+            }
+        }
+
+        pixiConsole.history = history;
+    };
+
+    const apply = (name: RuntimeSetting) => {
+        if (!pixiConsole) return;
+
+        if (name === "evaluator") pixiConsole.evaluator = settings.evaluator ? evaluator : null;
+        else pixiConsole[name] = settings[name];
+    };
+
+    const syncControls = () => {
+        const evaluatorSwitch = document.querySelector<HTMLInputElement>("#settings [name='evaluator']");
+        const hint = document.querySelector<HTMLElement>("#stage-hint");
+
+        // Lines only reach the evaluator through the command line.
+        if (evaluatorSwitch) evaluatorSwitch.disabled = !settings.prompt;
+        if (hint) hint.hidden = !settings.prompt;
         renderSnippet(settings);
     };
 
     mount();
+    syncControls();
 
     console.log(`pixi-console is capturing this page. PixiJS v${VERSION}, renderer: ${app.renderer.name}`);
     console.info("Press ` to toggle the console, scroll it with the wheel or by dragging.");
+    console.info("Type help in the command line below, or some JavaScript like app.stage.children.length");
 
     const actions: Record<string, () => void> = {
         log: () => {
@@ -129,10 +200,17 @@ async function startPlayground(): Promise<void> {
     document.querySelector("#settings")?.addEventListener("change", (event) => {
         const input = event.target as HTMLInputElement;
 
-        if (input.name === "textRenderer") settings.textRenderer = input.value as Settings["textRenderer"];
-        else if (input.name in settings) (settings as unknown as Record<string, boolean>)[input.name] = input.checked;
+        if (input.name === "textRenderer") {
+            settings.textRenderer = input.value as Settings["textRenderer"];
+            mount();
+        } else if (input.name in settings) {
+            const name = input.name as RuntimeSetting;
 
-        mount();
+            settings[name] = input.checked;
+            apply(name);
+        }
+
+        syncControls();
     });
 
     document.querySelectorAll<HTMLButtonElement>("[data-copy]").forEach((button) => {
@@ -157,15 +235,22 @@ function renderSnippet(settings: Settings): void {
     if (!target) return;
 
     const options: string[] = [];
+    const evaluate = settings.prompt && settings.evaluator;
 
     if (settings.textRenderer !== "bitmap") options.push(`textRenderer: "${settings.textRenderer}",`);
     if (settings.timestamps) options.push("timestamps: true,");
     if (!settings.collapseRepeats) options.push("collapseRepeats: false,");
     if (!settings.toolbar) options.push("toolbar: false,");
+    if (settings.prompt) {
+        options.push("prompt: true,", "commands: {", "    fps: () => app.ticker.FPS.toFixed(1),", "},");
+    }
+    if (evaluate) {
+        options.push("evaluator: import.meta.env.DEV", "    ? createJsEvaluator({ scope: { app } })", "    : null,");
+    }
     options.push("autoResize: { renderer: app.renderer },");
 
     const code = [
-        `import { PixiConsole } from "pixi-console";`,
+        `import { ${evaluate ? "createJsEvaluator, " : ""}PixiConsole } from "pixi-console";`,
         ``,
         `const devConsole = new PixiConsole({`,
         ...options.map((line) => `    ${line}`),
@@ -180,7 +265,7 @@ function highlight(code: string): string {
     const escaped = code.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
     return escaped.replace(
-        /("[^"]*")|\b(import|from|const|new|true|false)\b|\b([A-Z]\w+)\b/g,
+        /("[^"]*")|\b(import|from|const|new|true|false|null)\b|\b([A-Z][a-z]\w*|createJsEvaluator)\b/g,
         (match, string: string | undefined, keyword: string | undefined) => {
             if (string) return `<span class="tok-string">${match}</span>`;
             if (keyword) return `<span class="tok-keyword">${match}</span>`;
