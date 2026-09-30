@@ -416,6 +416,7 @@ describe("PromptInput", () => {
             historyNext: vi.fn<PromptHandlers["historyNext"]>(() => undefined),
             complete: vi.fn<PromptHandlers["complete"]>(() => null),
             page: vi.fn(),
+            wheel: vi.fn<PromptHandlers["wheel"]>(() => true),
             focusChange: vi.fn(),
         };
         prompt = new PromptInput(handlers, STYLE);
@@ -719,6 +720,32 @@ describe("PromptInput", () => {
             expect(key("keydown", { key: "PageUp" }).defaultPrevented).toBe(true);
             expect(key("keydown", { key: "PageDown", shiftKey: true }).defaultPrevented).toBe(true);
             expect(handlers.page.mock.calls).toEqual([[-1], [1]]);
+        });
+
+        it("scrolls the log with the wheel instead of the page", () => {
+            const wheel = (init: WheelEventInit) => {
+                const event = new WheelEvent("wheel", { bubbles: true, cancelable: true, ...init });
+
+                prompt.element.dispatchEvent(event);
+
+                return event;
+            };
+
+            expect(wheel({ deltaY: 120 }).defaultPrevented).toBe(true);
+            expect(wheel({ deltaY: -3, deltaMode: 1 }).defaultPrevented).toBe(true);
+            expect(handlers.wheel.mock.calls).toEqual([
+                [120, 0],
+                [-3, 1],
+            ]);
+
+            // Zooming and sideways scrolling stay with the browser.
+            expect(wheel({ deltaY: 120, ctrlKey: true }).defaultPrevented).toBe(false);
+            expect(wheel({ deltaX: 40 }).defaultPrevented).toBe(false);
+            expect(handlers.wheel).toHaveBeenCalledTimes(2);
+
+            // Nor is the page stopped when the log didn't scroll.
+            handlers.wheel.mockReturnValue(false);
+            expect(wheel({ deltaY: 120 }).defaultPrevented).toBe(false);
         });
 
         it("keeps keydown and keypress from the page, but not keyup", () => {

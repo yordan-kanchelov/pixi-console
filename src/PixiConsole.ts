@@ -1223,6 +1223,13 @@ export class PixiConsole extends Container {
                 historyNext: () => this._history.next(),
                 complete: (value) => this._complete(value),
                 page: (direction) => this.scrollBy(direction * this._contentRect.height),
+                // Like a wheel over the log, which a non-interactive console lets through.
+                wheel: (deltaY, deltaMode) => {
+                    if (this.eventMode !== "static" && this.eventMode !== "dynamic") return false;
+                    this._scrollByWheel(deltaY, deltaMode);
+
+                    return true;
+                },
                 focusChange: (focused) => {
                     if (this._promptGlyph) this._promptGlyph.alpha = focused ? 1 : PROMPT_IDLE_ALPHA;
                 },
@@ -1366,6 +1373,13 @@ export class PixiConsole extends Container {
         this._toolbar?.invalidate();
     }
 
+    /** Scrolls by a wheel delta given in pixels, lines or pages (`WheelEvent.deltaMode` 0, 1 or 2). */
+    private _scrollByWheel(deltaY: number, deltaMode: number): void {
+        const unit = deltaMode === 1 ? this._lineHeight : deltaMode === 2 ? this._contentRect.height : 1;
+
+        this.scrollBy(deltaY * unit);
+    }
+
     private _setupPointer(): void {
         this.eventMode = this._options.interactive ? "static" : "none";
 
@@ -1377,9 +1391,7 @@ export class PixiConsole extends Container {
             // The browser zooms the page instead.
             if (event.ctrlKey) return;
 
-            const unit =
-                event.deltaMode === 1 ? this._lineHeight : event.deltaMode === 2 ? this._contentRect.height : 1;
-            this.scrollBy(event.deltaY * unit);
+            this._scrollByWheel(event.deltaY, event.deltaMode);
         });
 
         this.on("pointerdown", (event: FederatedPointerEvent) => {

@@ -12,6 +12,8 @@ export interface PromptHandlers {
     complete(value: string): string | null;
     /** PageUp (`-1`) or PageDown (`1`) was pressed. */
     page(direction: -1 | 1): void;
+    /** The wheel turned over the input. Returns whether it scrolled the log, in which case the page doesn't scroll. */
+    wheel(deltaY: number, deltaMode: number): boolean;
     /** The input gained or lost focus. */
     focusChange(focused: boolean): void;
 }
@@ -249,6 +251,8 @@ export class PromptInput {
         this._listen(input, "compositionstart", this._onCompositionStart);
         this._listen(input, "compositionend", this._onCompositionEnd);
         this._listen(input, "paste", this._onPaste);
+        // Not passive (listeners on elements aren't by default), so the page can be kept from scrolling.
+        this._listen(input, "wheel", this._onWheel);
         this._listen(input, "focus", () => this._handlers.focusChange(true));
         this._listen(input, "blur", () => this._handlers.focusChange(false));
     }
@@ -371,6 +375,13 @@ export class PromptInput {
 
         this._setValue("");
         this._handlers.submit(line);
+    };
+
+    /** The input covers the prompt row, so the canvas never sees wheels there: scroll the log like it would. */
+    private readonly _onWheel = (event: WheelEvent): void => {
+        // Zooming (ctrl+wheel, or a trackpad pinch) and sideways scrolling stay with the browser.
+        if (event.ctrlKey || event.deltaY === 0) return;
+        if (this._handlers.wheel(event.deltaY, event.deltaMode)) event.preventDefault();
     };
 
     private readonly _onKeyDown = (event: KeyboardEvent): void => {
