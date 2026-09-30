@@ -73,16 +73,16 @@ if (import.meta.env.DEV) {
 
 Every option is optional. These are the common ones:
 
-| Option           | Default       | Description                                                                                       |
-| ---------------- | ------------- | ------------------------------------------------------------------------------------------------- |
-| `width`/`height` | `800`/`400`   | Size in pixels. Change it later with `resize()`.                                                  |
-| `autoResize`     | `null`        | `{ renderer, layout? }` follows the screen. `layout(screen)` returns `{ x?, y?, width, height }`. |
-| `visible`        | `false`       | Start visible.                                                                                    |
-| `captureConsole` | `true`        | `true`, `false` or a list of levels to capture.                                                   |
-| `showOnError`    | `true`        | Show the console when an error is logged or thrown.                                               |
-| `toggleKey`      | `"Backquote"` | Key that toggles the console, or `null`. With `prompt`, it also focuses the command line.         |
-| `textRenderer`   | `"bitmap"`    | `"canvas"` uses `Text`, which is better for CJK and colour emoji.                                 |
-| `prompt`         | `false`       | Show a command line, see [Command line](#command-line).                                           |
+| Option           | Default       | Description                                                                                                         |
+| ---------------- | ------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `width`/`height` | `800`/`400`   | Size in pixels. Change it later with `resize()`.                                                                    |
+| `autoResize`     | `null`        | `{ renderer, layout? }` follows the screen. `layout(screen)` returns `{ x?, y?, width, height }`.                   |
+| `visible`        | `false`       | Start visible.                                                                                                      |
+| `captureConsole` | `true`        | `true`, `false` or a list of levels to capture.                                                                     |
+| `showOnError`    | `true`        | Show the console when an error is logged or thrown.                                                                 |
+| `toggleKey`      | `"Backquote"` | Key that toggles the console, or `null`. With `prompt`, it also focuses the command line if nothing else has focus. |
+| `textRenderer`   | `"bitmap"`    | `"canvas"` uses `Text`, which is better for CJK and colour emoji.                                                   |
+| `prompt`         | `false`       | Show a command line, see [Command line](#command-line).                                                             |
 
 <details>
 <summary><b>All options</b></summary>
@@ -141,7 +141,7 @@ await devConsole.execute("spawn 3"); // run a line from code
 | <kbd>Tab</kbd>                    | Complete a command name              |
 | <kbd>PgUp</kbd> / <kbd>PgDn</kbd> | Scroll the log                       |
 
-Keys typed into the command line don't reach your game's `keydown` listeners (only capture-phase ones) or the toggle key. `keyup` still does, so no key gets stuck. Opening the console with the toggle key focuses the command line.
+Keys typed into the command line don't reach your game's `keydown` listeners (only capture-phase ones) or the toggle key. `keyup` still does, so no key gets stuck. Opening the console with the toggle key focuses the command line when nothing else on the page has focus.
 
 <details>
 <summary><b>Evaluating JavaScript</b></summary>
@@ -155,18 +155,25 @@ const devConsole = new PixiConsole({
 });
 ```
 
-Lines then run like in the devtools console:
+Lines then run much like in the devtools console:
 
-- The value of the last statement is printed, `{ a: 1 }` is an object, and `await` works at the top level.
+- The value of the last statement is printed, and `{ a: 1 }` is an object.
 - `$_` is the previous result, and `scope` values (here `app`) are available by name.
 - `var` and function declarations persist between lines. `let` and `const` don't.
+- `await` works at the top level when the line is a single expression, like `await Assets.load(url)`. Any other line with an `await`, like `var tex = await …`, runs inside an async function: its result is `undefined` and its declarations don't persist. Write `globalThis.tex = await …` to keep a value.
 - Pasted lines are joined into one, so a `//` comment hides the rest of the paste.
 
-To reach the variables of one of your modules instead, write the evaluator in that module: `evaluator: (line) => eval(line)`. Your bundler warns about the direct `eval`.
+To reach the variables of one of your modules instead, write the evaluator in that module. A direct `eval` sees them, and `$_` too:
+
+```ts
+evaluator: import.meta.env.DEV ? (line, { lastResult: $_ }) => eval(line) : null,
+```
+
+The `DEV` check keeps the `eval`, and your bundler's warning about it, out of production builds.
 
 </details>
 
-> **Security and CSP.** Whoever can type into the console can run any code in your page, and players can be talked into pasting some (self-XSS). Keep `createJsEvaluator` out of production builds. It uses `eval`, so it needs a Content-Security-Policy that allows `'unsafe-eval'` and doesn't enforce Trusted Types. `import "pixi.js/unsafe-eval"` doesn't change that. When evaluation is blocked, the console says so and commands keep working. Without an evaluator the command line uses no `eval`, and bundles that don't import `createJsEvaluator` contain none. Command arguments are whatever was typed: treat them as untrusted input.
+> **Security and CSP.** Whoever can type into the console can run any code in your page, and players can be talked into pasting some (self-XSS). Keep any evaluator (`createJsEvaluator` or your own `eval`) out of production builds. `eval` needs a Content-Security-Policy that allows `'unsafe-eval'` and doesn't enforce Trusted Types. `import "pixi.js/unsafe-eval"` doesn't change that. When evaluation is blocked, the console says so and commands keep working. Without an evaluator the command line uses no `eval`, and pixi-console adds none to bundles that don't import `createJsEvaluator`. Command arguments are whatever was typed: treat them as untrusted input.
 
 <details>
 <summary><b>Mobile & TV tips</b></summary>
@@ -194,7 +201,7 @@ To reach the variables of one of your modules instead, write the evaluator in th
   addEventListener("pagehide", () => localStorage.setItem("console-history", JSON.stringify(devConsole.history)));
   ```
 
-- The wheel over the command line scrolls the page, not the log.
+- The wheel scrolls the log, not the page, except over the command line. Zooming (ctrl+wheel or a trackpad pinch) and sideways scrolling are left to the browser.
 - If you take an ancestor of a shown console off the stage, or stop rendering, the input stays until you call `hide()` or `destroy()`.
 
 </details>
@@ -220,6 +227,8 @@ devConsole.history = saved; // lines entered at the prompt, oldest first
 devConsole.lastResult; // what the last line returned ($_)
 devConsole.destroy(); // restores console and removes every listener
 ```
+
+Presses, taps and wheels over an `interactive` console don't reach objects underneath it. A drag that starts on the console and ends outside it still delivers `pointerup` and the click/tap to what is underneath.
 
 You can create several consoles at once. The console is a render group of its own: don't cache it, or an ancestor, with `cacheAsTexture`, or it stops updating. See the [API reference](https://yordan-kanchelov.github.io/pixi-console/api/) for everything else.
 

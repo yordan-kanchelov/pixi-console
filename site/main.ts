@@ -85,7 +85,9 @@ async function startPlayground(): Promise<void> {
     let pixiConsole: PixiConsole | undefined;
 
     // Only the text renderer can't change at runtime, so changing it creates a new console. That one
-    // takes over what the old one showed (with fresh timestamps), its filter and its command history.
+    // takes over the old one's log (with fresh timestamps), its filter and its command history. The
+    // command-line transcript is dropped: its entries can't be written back with their `kind`, and as
+    // ordinary entries they would be counted and could be filtered out.
     const mount = () => {
         const previous = pixiConsole;
         const entries = [...(previous?.entries ?? [])];
@@ -102,7 +104,9 @@ async function startPlayground(): Promise<void> {
         });
         app.stage.addChild(pixiConsole);
 
-        for (const { level, message, color, count } of entries) {
+        for (const { level, message, color, count, kind } of entries) {
+            if (kind) continue;
+
             // Repeated, so collapsed entries collapse again. "%s" keeps a "%" in the message as it is.
             for (let i = 0; i < count; i++) {
                 if (color === undefined) pixiConsole[level]("%s", message);
