@@ -4,3 +4,5 @@ coverage
 .vitest
 package-lock.json
 CHANGELOG.md
+.claude/skills
+skills-lock.json

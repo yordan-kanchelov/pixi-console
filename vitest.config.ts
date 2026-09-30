@@ -39,6 +39,9 @@ export default defineConfig({
             provider: "v8",
             include: ["src/**/*.ts"],
             reporter: ["text", "html", "lcov"],
+            // Just below what the suite reaches (99.4% statements, 94.8% branches, 100% functions,
+            // 99.9% lines): `npm run test:coverage` fails when new code comes without tests.
+            thresholds: { statements: 99, branches: 94, functions: 99, lines: 99 },
         },
     },
 });

@@ -79,6 +79,8 @@ function patch(level: InterceptedMethod): void {
         // must reach the original method without notifying listeners again.
         if (dispatching) return original.apply(this ?? console, args);
 
+        const failures: unknown[] = [];
+
         dispatching = true;
         try {
             for (const subscription of subscriptions) {
@@ -86,13 +88,20 @@ function patch(level: InterceptedMethod): void {
                 try {
                     subscription.listener(level, args);
                 } catch (error) {
-                    original.call(console, "[pixi-console] listener failed", error);
+                    failures.push(error);
                 }
             }
 
             return original.apply(this ?? console, args);
         } finally {
-            dispatching = false;
+            try {
+                // Through console.error, not `original`: debug() is hidden by default and clear() prints
+                // nothing. After the original call, so that clear() does not wipe the report.
+                // `dispatching` is still set, so our own patch forwards it without notifying.
+                for (const error of failures) console.error("[pixi-console] listener failed", error);
+            } finally {
+                dispatching = false;
+            }
         }
     };
 
@@ -102,27 +111,51 @@ function patch(level: InterceptedMethod): void {
 
 export type GlobalErrorListener = (error: unknown, kind: "error" | "unhandledrejection") => void;
 
+/** Hint appended to the opaque message browsers report for errors thrown by cross-origin scripts. */
+const CROSS_ORIGIN_HINT = " (cross-origin script: add the crossorigin attribute and CORS headers to see details)";
+
 /**
- * Listens for uncaught errors and unhandled promise rejections on `window`.
+ * Listens for uncaught errors and unhandled promise rejections on `window`, or on the global scope
+ * of a worker.
  *
  * @returns A function that removes the listeners.
  */
 export function interceptGlobalErrors(listener: GlobalErrorListener): () => void {
-    if (typeof window === "undefined" || typeof window.addEventListener !== "function") {
+    const scope: Partial<typeof globalThis> = typeof window !== "undefined" ? window : globalThis;
+
+    if (typeof scope.addEventListener !== "function" || typeof scope.removeEventListener !== "function") {
         return () => undefined;
     }
 
+    const target = scope as typeof globalThis;
+
     const onError = (event: ErrorEvent) => {
+        if (event.error != null) {
+            listener(event.error, "error");
+            return;
+        }
+
+        // Also survives a plain `Event("error")` dispatched on `window`.
+        const message = (event.message as string | undefined) ?? "";
+
+        // Chrome reports these benign notifications to `window` (not to devtools) when a
+        // ResizeObserver callback changes the observed layout, e.g. by resizing the renderer.
+        if (message.startsWith("ResizeObserver loop")) return;
+
         const location = event.filename ? ` (${event.filename}:${event.lineno}:${event.colno})` : "";
-        listener(event.error ?? `${event.message}${location}`, "error");
+        // `throw null` yields message "Uncaught null" (Chrome) or "uncaught exception: null" (Firefox);
+        // the console adds its own "Uncaught".
+        const text = message.replace(/^uncaught(?: exception:)?\s+/i, "");
+
+        listener(`${text}${location}${message === "Script error." ? CROSS_ORIGIN_HINT : ""}`, "error");
     };
     const onRejection = (event: PromiseRejectionEvent) => listener(event.reason, "unhandledrejection");
 
-    window.addEventListener("error", onError);
-    window.addEventListener("unhandledrejection", onRejection);
+    target.addEventListener("error", onError);
+    target.addEventListener("unhandledrejection", onRejection);
 
     return () => {
-        window.removeEventListener("error", onError);
-        window.removeEventListener("unhandledrejection", onRejection);
+        target.removeEventListener("error", onError);
+        target.removeEventListener("unhandledrejection", onRejection);
     };
 }

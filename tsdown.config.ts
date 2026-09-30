@@ -10,6 +10,9 @@ export default defineConfig([
         dts: true,
         sourcemap: true,
         clean: true,
+        // Ignore-list every source (`x_google_ignoreList`), so DevTools show the caller of a captured console call
+        // instead of pixi-console's wrapper. Applies when the app's bundler chains these source maps.
+        outputOptions: { sourcemapIgnoreList: true },
     },
     // <script> / CDN build: exposes `window.PixiConsole` and expects pixi.js as the global `PIXI`.
     {
@@ -22,6 +25,7 @@ export default defineConfig([
         sourcemap: true,
         dts: false,
         clean: false,
-        outputOptions: { globals: { "pixi.js": "PIXI" } },
+        // Same ignore list. <script> users load this map directly, so it always applies.
+        outputOptions: { globals: { "pixi.js": "PIXI" }, sourcemapIgnoreList: true },
     },
 ]);

@@ -45,8 +45,14 @@
             </section>
 
             <section id="playground" class="playground">
-                <div class="stage-frame">
-                    <div id="stage" class="stage"></div>
+                <div class="stage-column">
+                    <div class="stage-frame">
+                        <div id="stage" class="stage"></div>
+                    </div>
+                    <p id="stage-hint" class="stage-hint">
+                        Tap the <code>&gt;</code> prompt (or press <kbd>`</kbd> to open the console) and type
+                        <code>help</code>.
+                    </p>
                 </div>
                 <aside class="panel">
                     <div id="controls">
@@ -58,6 +64,8 @@
                             <button type="button" data-action="warn" class="lvl-warn">console.warn</button>
                             <button type="button" data-action="error" class="lvl-error">console.error</button>
                             <button type="button" data-action="object">log an object</button>
+                            <button type="button" data-action="binary">binary data</button>
+                            <button type="button" data-action="cause">error with cause</button>
                             <button type="button" data-action="throw">throw an error</button>
                             <button type="button" data-action="reject">reject a promise</button>
                             <button type="button" data-action="repeat">repeat ×10</button>
@@ -66,7 +74,21 @@
                             <button type="button" data-action="toggle">toggle <kbd>`</kbd></button>
                         </div>
                     </div>
-                    <form id="settings">
+                    <div id="command-line">
+                        <h2>Command line</h2>
+                        <div class="buttons">
+                            <button type="button" data-line="help" class="line">help</button>
+                            <button type="button" data-line="speed 0.5" class="line">speed 0.5</button>
+                            <button type="button" data-line="speed 1" class="line">speed 1</button>
+                            <button type="button" data-line="fps" class="line">fps</button>
+                            <button type="button" data-focus>focus the prompt</button>
+                        </div>
+                        <p class="note">
+                            Each line runs through <code>devConsole.execute(line)</code>, which works with the prompt
+                            off too. The last button calls <code>devConsole.focusPrompt()</code>.
+                        </p>
+                    </div>
+                    <form id="settings" autocomplete="off">
                         <h2>Options</h2>
                         <fieldset class="segmented">
                             <legend>textRenderer</legend>
@@ -78,6 +100,20 @@
                             ><input type="checkbox" name="collapseRepeats" checked /> collapseRepeats</label
                         >
                         <label class="switch"><input type="checkbox" name="toolbar" checked /> toolbar</label>
+                        <label class="switch"><input type="checkbox" name="prompt" checked /> prompt</label>
+                        <label class="switch"><input type="checkbox" name="evaluator" checked /> evaluate JS</label>
+                        <div class="option">
+                            <span id="max-entries">maxEntries</span>
+                            <div class="segmented" role="radiogroup" aria-labelledby="max-entries">
+                                <label><input type="radio" name="maxEntries" value="100" /> 100</label>
+                                <label><input type="radio" name="maxEntries" value="1000" checked /> 1000</label>
+                                <label><input type="radio" name="maxEntries" value="5000" /> 5000</label>
+                            </div>
+                        </div>
+                        <p class="note">
+                            Only <code>textRenderer</code> needs a new console. The rest change live, through setters
+                            like <code>devConsole.maxEntries = 100</code>.
+                        </p>
                     </form>
                     <pre class="code snippet"><code id="snippet"></code></pre>
                 </aside>
@@ -89,37 +125,42 @@
                     <p>
                         It captures <code>log</code>, <code>info</code>, <code>debug</code>, <code>warn</code> and
                         <code>error</code>, plus uncaught errors, unhandled promise rejections and
-                        <code>console.clear()</code>. Your devtools keep working as usual.
+                        <code>console.clear()</code>. Harmless <code>ResizeObserver</code> loop notices are left out.
+                        Your devtools keep working as usual.
                     </p>
                 </article>
                 <article>
                     <h3>Reads like devtools</h3>
                     <p>
-                        It supports printf-style <code>%s %d %o</code> substitutions. Objects, Maps and Sets are
-                        pretty-printed, circular references are handled, errors show their stack, and repeated messages
-                        collapse into one line.
+                        It supports printf-style <code>%s %d %o</code> substitutions. Objects, Maps, Sets, typed arrays
+                        and sparse arrays print like in devtools, circular references included. Errors show their stack,
+                        <code>cause</code> chain and extra properties like <code>code</code>. Repeated messages collapse
+                        into one line.
                     </p>
                 </article>
                 <article>
                     <h3>Virtualized &amp; fast</h3>
                     <p>
                         Only the visible lines exist as display objects, drawn with <code>BitmapText</code> from a
-                        single glyph atlas. Layout happens at most once per frame, so a flood of logs costs almost
-                        nothing.
+                        single glyph atlas. Layout happens at most once per frame, and the console is its own render
+                        group, so a flood of logs doesn't make PixiJS rebuild your stage. Hidden, it skips layout
+                        entirely.
                     </p>
                 </article>
                 <article>
                     <h3>Touch friendly</h3>
                     <p>
-                        Scroll with the wheel or by dragging. The toolbar lets you filter by level, clear, and close the
-                        console. It opens itself when an error happens.
+                        Scroll with the wheel or by dragging. Taps and the wheel over the log don't reach objects under
+                        it, and the wheel scrolls the log instead of the page. The toolbar filters by level, clears and
+                        closes, with compact labels on narrow screens. It opens itself when an error happens.
                     </p>
                 </article>
                 <article>
                     <h3>Fits any screen</h3>
                     <p>
                         <code>autoResize</code> follows your renderer across window resizes and orientation changes. Put
-                        the console anywhere with a layout function.
+                        the console anywhere with a layout function. Filters, timestamps, <code>maxEntries</code>, the
+                        toolbar and the prompt can change at any time.
                     </p>
                 </article>
                 <article>
@@ -127,6 +168,17 @@
                     <p>
                         Zero runtime dependencies besides <code>pixi.js</code>. Ships ESM, CommonJS and a
                         <code>&lt;script&gt;</code> build with full TypeScript types.
+                    </p>
+                </article>
+                <article class="feature-wide">
+                    <h3>Command line</h3>
+                    <p>
+                        Turn on <code>prompt</code> to run commands on the device itself. <code>help</code> and
+                        <code>clear</code> are built in, <code>addCommand()</code> adds your own, and
+                        <code>createJsEvaluator()</code> runs JavaScript in development builds. <kbd>↑</kbd>
+                        <kbd>↓</kbd> recall earlier lines, <kbd>Tab</kbd> completes command names, and
+                        <code>execute()</code> runs a line from your code. It's a real text field over the canvas, so
+                        phone keyboards, IME and paste just work.
                     </p>
                 </article>
             </section>
@@ -161,9 +213,52 @@ console.log(<span class="tok-string">"Hello from the canvas!"</span>);</code></p
     <span class="tok-keyword">await</span> app.init({ resizeTo: window });
     document.body.appendChild(app.canvas);
 
-    <span class="tok-keyword">const</span> devConsole = <span class="tok-keyword">new</span> <span class="tok-type">PixiConsole</span>.<span class="tok-type">PixiConsole</span>({ visible: <span class="tok-keyword">true</span> });
+    <span class="tok-keyword">const</span> devConsole = <span class="tok-keyword">new</span> <span class="tok-type">PixiConsole</span>.<span class="tok-type">PixiConsole</span>({
+        visible: <span class="tok-keyword">true</span>,
+        autoResize: { renderer: app.renderer },
+    });
     app.stage.addChild(devConsole);
 &lt;/<span class="tok-keyword">script</span>&gt;</code></pre>
+                </div>
+                <div>
+                    <h2>Command line</h2>
+                    <pre
+                        class="code"
+                    ><code><span class="tok-keyword">import</span> { <span class="tok-type">createJsEvaluator</span>, <span class="tok-type">PixiConsole</span> } <span class="tok-keyword">from</span> <span class="tok-string">"pixi-console"</span>;
+
+<span class="tok-keyword">const</span> devConsole = <span class="tok-keyword">new</span> <span class="tok-type">PixiConsole</span>({
+    prompt: <span class="tok-keyword">true</span>,
+    autoResize: { renderer: app.renderer },
+    commands: {
+        spawn: {
+            usage: <span class="tok-string">"&lt;count&gt;"</span>,
+            description: <span class="tok-string">"Spawn enemies"</span>,
+            run: ([count = <span class="tok-string">"1"</span>]) =&gt; game.spawn(<span class="tok-type">Number</span>(count)),
+        },
+    },
+    <span class="tok-comment">// JavaScript too, in development builds only</span>
+    evaluator: <span class="tok-keyword">import</span>.meta.env.DEV
+        ? <span class="tok-type">createJsEvaluator</span>({ scope: { app } })
+        : <span class="tok-keyword">null</span>,
+});
+app.stage.addChild(devConsole);
+
+devConsole.addCommand(<span class="tok-string">"fps"</span>, () =&gt; app.ticker.FPS.toFixed(1));
+<span class="tok-keyword">await</span> devConsole.execute(<span class="tok-string">"spawn 3"</span>); <span class="tok-comment">// run a line from code</span></code></pre>
+                </div>
+                <div>
+                    <h2>Change it at runtime</h2>
+                    <pre
+                        class="code"
+                    ><code>devConsole.filter = [<span class="tok-string">"warn"</span>, <span class="tok-string">"error"</span>];
+devConsole.timestamps = <span class="tok-keyword">true</span>;
+devConsole.maxEntries = 100; <span class="tok-comment">// drops the oldest entries now</span>
+devConsole.toolbar = <span class="tok-keyword">false</span>;
+devConsole.prompt = <span class="tok-keyword">true</span>;
+devConsole.history = savedLines; <span class="tok-comment">// for ↑ and ↓</span>
+
+<span class="tok-comment">// In a tap handler, so phones open the keyboard</span>
+button.addEventListener(<span class="tok-string">"click"</span>, () =&gt; devConsole.focusPrompt());</code></pre>
                     <p class="muted">
                         Every option, method and type is documented in the <a href="./api/">API reference</a>. Coming
                         from v4? Read the

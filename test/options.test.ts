@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { DEFAULT_OPTIONS, resolveOptions, toLevels } from "../src/options";
+import { DEFAULT_FORMAT_OPTIONS } from "../src/core/format";
+import { DEFAULT_COLORS, DEFAULT_OPTIONS, resolveOptions, toLevels, type PixiConsoleInit } from "../src/options";
 
 describe("resolveOptions", () => {
     it("returns the defaults", () => {
@@ -18,6 +19,66 @@ describe("resolveOptions", () => {
 
     it("ignores explicitly undefined values", () => {
         expect(resolveOptions({ width: undefined }).width).toBe(DEFAULT_OPTIONS.width);
+    });
+
+    it("ignores explicitly undefined colours and format options", () => {
+        const options = resolveOptions({
+            colors: { error: undefined, warn: "yellow" },
+            format: { depth: undefined, indent: undefined, maxItems: undefined, maxLength: undefined },
+        });
+
+        expect(options.colors).toEqual({ ...DEFAULT_COLORS, warn: "yellow" });
+        expect(options.format).toEqual(DEFAULT_FORMAT_OPTIONS);
+    });
+
+    it("falls back to the defaults for NaN and non-number limits, but keeps Infinity", () => {
+        expect(DEFAULT_OPTIONS.maxEntries).toBe(1000);
+        expect(resolveOptions({ maxEntries: Number.NaN }).maxEntries).toBe(DEFAULT_OPTIONS.maxEntries);
+        expect(resolveOptions({ maxEntries: "5" as unknown as number }).maxEntries).toBe(DEFAULT_OPTIONS.maxEntries);
+        expect(resolveOptions({ maxEntries: Infinity }).maxEntries).toBe(Infinity);
+        expect(resolveOptions({ format: { depth: Number.NaN, maxLength: Infinity } }).format).toEqual({
+            ...DEFAULT_FORMAT_OPTIONS,
+            maxLength: Infinity,
+        });
+    });
+
+    it("tolerates null nested options from JavaScript callers", () => {
+        const options = resolveOptions({ colors: null, format: null } as unknown as PixiConsoleInit);
+
+        expect(options.colors).toEqual(DEFAULT_COLORS);
+        expect(options.format).toEqual(DEFAULT_FORMAT_OPTIONS);
+    });
+
+    it("defaults to no command line, no extra commands and no evaluator", () => {
+        expect(DEFAULT_OPTIONS).toMatchObject({ prompt: false, commands: {}, evaluator: null });
+    });
+
+    it("keeps the commands object as given, without touching the default", () => {
+        const commands = { spawn: () => "spawned" };
+        const evaluator = (line: string) => line;
+        const options = resolveOptions({ prompt: true, commands, evaluator });
+
+        expect(options.commands).toBe(commands);
+        expect(options.evaluator).toBe(evaluator);
+        expect(options.prompt).toBe(true);
+        expect(Object.keys(commands)).toEqual(["spawn"]);
+        expect(resolveOptions({ commands: undefined, evaluator: undefined }).commands).toEqual({});
+        expect(DEFAULT_OPTIONS.commands).toEqual({});
+    });
+
+    it("never shares or mutates the default objects", () => {
+        const options = resolveOptions();
+
+        expect(DEFAULT_OPTIONS.format).not.toBe(DEFAULT_FORMAT_OPTIONS);
+        expect(DEFAULT_OPTIONS.format).toEqual(DEFAULT_FORMAT_OPTIONS);
+        expect(options.colors).not.toBe(DEFAULT_COLORS);
+        expect(options.format).not.toBe(DEFAULT_FORMAT_OPTIONS);
+
+        options.colors.error = "red";
+        options.format.depth = 10;
+
+        expect(DEFAULT_COLORS.error).not.toBe("red");
+        expect(DEFAULT_FORMAT_OPTIONS.depth).toBe(2);
     });
 });
 

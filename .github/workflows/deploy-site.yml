@@ -1,13 +1,16 @@
 name: Site CI
 
-# Library changes reach the site with each release (see release.yml). This workflow
-# covers site-only changes: it builds them on PRs and deploys them from master.
+# Library changes reach the site with each release (see release.yml). This workflow covers site-only changes:
+# it lints and builds them on PRs (PR Checks skip them) and deploys them from master. While a release is pending,
+# a push to master would put unreleased library code on the site under the old version number, so it is not
+# deployed; release.yml deploys it on publish. Run this workflow manually to deploy anyway.
 on:
   pull_request:
     paths:
       - "site/**"
       - "img/**"
-      - "README.md"
+      # Every root Markdown file, not just README.md: PR Checks skip them, but `npm run lint` covers them
+      - "*.md"
       - "typedoc.json"
       - ".github/workflows/deploy-site.yml"
   push:
@@ -30,6 +33,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      release-pending: ${{ steps.pending.outputs.release-pending }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -37,17 +42,36 @@ jobs:
       - name: Setup Environment
         uses: ./.github/actions/setup-node-npm
 
+      # PR Checks skip site/ and Markdown changes, so lint and type-check them here
+      - name: Lint & Check Formatting
+        run: npm run lint
+
+      - name: Type Check
+        run: npm run typecheck
+
       - name: Build
         run: npm run build:site
 
+      # Pending changesets mean master has library changes that are not on npm yet
+      - name: Check for a pending release
+        id: pending
+        if: github.event_name == 'push'
+        run: |
+          npx changeset status --output="$RUNNER_TEMP/release-plan.json"
+          releases=$(node -p "require(process.env.RUNNER_TEMP + '/release-plan.json').releases.length")
+          if [ "$releases" -gt 0 ]; then
+            echo "::notice::Not deploying: a release is pending. release.yml deploys the site when it is published."
+            echo "release-pending=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Upload GitHub Pages artifact
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && steps.pending.outputs.release-pending != 'true'
         uses: actions/upload-pages-artifact@v5
         with:
           path: site/dist
 
   deploy:
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && needs.build.outputs.release-pending != 'true'
     needs: build
     runs-on: ubuntu-latest
     permissions:

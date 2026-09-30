@@ -3,7 +3,7 @@ name: PR Checks
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    # Skip documentation-only changes. site/ has its own workflow.
+    # Skip documentation-only changes. Site CI (deploy-site.yml) lints, type-checks and builds site/ and Markdown.
     paths-ignore:
       - "*.md"
       - "LICENSE"
@@ -21,8 +21,10 @@ jobs:
   check-changeset:
     name: Verify Changeset
     runs-on: ubuntu-latest
-    # Version PRs and dependency bumps don't need a changeset
-    if: github.head_ref != 'changeset-release/master' && github.actor != 'dependabot[bot]'
+    # Version PRs and dependency bumps don't need a changeset. Match the PR author, not github.actor: a maintainer
+    # who pushes to or updates a Dependabot PR becomes the actor. release.yml's own pushes to the version PR trigger
+    # no PR Checks, so the head_ref check matters when a person pushes to it, e.g. to edit the changelog.
+    if: github.head_ref != 'changeset-release/master' && github.event.pull_request.user.login != 'dependabot[bot]'
     outputs:
       has-changeset: ${{ steps.check.outputs.has-changeset }}
     steps:

@@ -216,6 +216,10 @@ input:focus-visible {
     align-items: start;
 }
 
+.stage-column {
+    min-width: 0;
+}
+
 .stage-frame {
     border-radius: var(--radius);
     padding: 1px;
@@ -235,6 +239,12 @@ input:focus-visible {
     width: 100%;
     height: 100%;
     touch-action: none;
+}
+
+.stage-hint {
+    margin: 12px 4px 0;
+    color: var(--muted);
+    font-size: 14px;
 }
 
 .panel {
@@ -269,6 +279,37 @@ input:focus-visible {
 .buttons button[class^="lvl-"] {
     font-family: var(--mono);
     border-left-width: 3px;
+}
+
+.buttons button.line {
+    font-family: var(--mono);
+}
+
+.buttons button.line::before {
+    content: "> ";
+    color: var(--info);
+}
+
+.buttons button:disabled {
+    color: var(--muted);
+    cursor: default;
+    opacity: 0.6;
+}
+
+.buttons button:disabled:hover {
+    border-color: var(--border);
+    background: var(--surface-2);
+}
+
+.note {
+    margin: 10px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+#settings .note {
+    margin-top: 2px;
 }
 
 .lvl-log {
@@ -353,6 +394,29 @@ input:focus-visible {
     height: 16px;
 }
 
+.switch:has(input:disabled) {
+    color: var(--muted);
+    cursor: default;
+}
+
+.option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-family: var(--mono);
+    font-size: 13px;
+}
+
+.option .segmented {
+    flex: 0 1 190px;
+    margin: 0;
+}
+
+.option .segmented label {
+    padding: 2px 0;
+}
+
 /* ------------------------------------------------------------------ code */
 
 .code {
@@ -382,6 +446,9 @@ input:focus-visible {
 .tok-type {
     color: #d2a8ff;
 }
+.tok-comment {
+    color: var(--muted);
+}
 
 /* ------------------------------------------------------------------ features */
 
@@ -397,6 +464,10 @@ input:focus-visible {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
+}
+
+.features .feature-wide {
+    grid-column: 1 / -1;
 }
 
 .features h3 {
@@ -442,6 +513,14 @@ input:focus-visible {
 }
 
 /* ------------------------------------------------------------------ responsive */
+
+/* Keeps the stage in view next to a long panel, when the window is tall enough for all of it. */
+@media (min-width: 961px) and (min-height: 700px) {
+    .stage-column {
+        position: sticky;
+        top: 72px;
+    }
+}
 
 @media (max-width: 960px) {
     .playground,

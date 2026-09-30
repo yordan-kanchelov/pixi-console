@@ -1,0 +1,161 @@
+{
+  "version": 1,
+  "skills": {
+    "pixijs": {
+      "source": "pixijs/pixijs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/pixijs/SKILL.md",
+      "computedHash": "d73079779a800b48f39f89e085544e7dc260682ea5650563c667d3d214bbbbf4"
+    },
+    "pixijs-accessibility": {
+      "source": "pixijs/pixijs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/pixijs-accessibility/SKILL.md",
+      "computedHash": "0c5b1d794f1765586e101db129c69925cfdf4debd2d03baad4f27657dd6a46f9"
+    },
+    "pixijs-application": {
+      "source": "pixijs/pixijs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/pixijs-application/SKILL.md",
+      "computedHash": "192b22d0d255d1571146b3dbeeb06ce0a139e60d32e436cdeee60a8c0d13d563"
+    },
+    "pixijs-assets": {
+      "source": "pixijs/pixijs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/pixijs-assets/SKILL.md",
+      "computedHash": "2c831499efc3b875a8f0b7d5264b4d7220e51cfeff65fc25e8ca046e74da10c3"
+    },
+    "pixijs-blend-modes": {
+      "source": "pixijs/pixijs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/pixijs-blend-modes/SKILL.md",
+      "computedHash": "9d754468113f0f94167c0ad525ebfa0525826b8aa94c6c626d6f87f43d9ee5fc"
+    },
+    "pixijs-color": {
+      "source": "pixijs/pixijs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/pixijs-color/SKILL.md",
+      "computedHash": "0901667635f6348bc2642db24dfc1486840f2c8ec9aa687f3b251c25ece55c2c"
+    },
+    "pixijs-core-concepts": {
+      "source": "pixijs/pixijs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/pixijs-core-concepts/SKILL.md",
+      "computedHash": "df4d4c298df232e82562531962d92ba94dc30a05064143c23d4fb34e66988f79"
+    },
+    "pixijs-create": {
+      "source": "pixijs/pixijs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/pixijs-create/SKILL.md",
+      "computedHash": "9750f2ac93057dd01de7a245fb7ee484b2c587303ae6565d04ff6f13e611131e"
+    },
+    "pixijs-custom-rendering": {
+      "source": "pixijs/pixijs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/pixijs-custom-rendering/SKILL.md",
+      "computedHash": "a5f73bddfb7be09d3697984b9d41e500c67ddca5f5ecec3c9fc19dfe0170cdb1"
+    },
+    "pixijs-environments": {
+      "source": "pixijs/pixijs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/pixijs-environments/SKILL.md",
+      "computedHash": "fd27c1e0d08e291d09cce5d0b0da8b3648851911d960bed8706370c74833e191"
+    },
+    "pixijs-events": {
+      "source": "pixijs/pixijs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/pixijs-events/SKILL.md",
+      "computedHash": "fc3f9fc1633b0c17a9ae3299579c2b57cc558430d19f1a9e7de04e5b2f819d0b"
+    },
+    "pixijs-filters": {
+      "source": "pixijs/pixijs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/pixijs-filters/SKILL.md",
+      "computedHash": "a144f8d96f351c1836e1635709d862feb05a69c1c95a48f86242794a114d557a"
+    },
+    "pixijs-html-source": {
+      "source": "pixijs/pixijs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/pixijs-html-source/SKILL.md",
+      "computedHash": "93abd6be2e693a59673e9613db6ba2f99561ce1ac1eff2ff9684d6f61ac96cfa"
+    },
+    "pixijs-math": {
+      "source": "pixijs/pixijs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/pixijs-math/SKILL.md",
+      "computedHash": "54766d37e7332d1cf7d18eef3bfa812e646c8c263c57660f785c36e525cbe03b"
+    },
+    "pixijs-migration-v8": {
+      "source": "pixijs/pixijs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/pixijs-migration-v8/SKILL.md",
+      "computedHash": "470545518d4313224d6e57eae57142252f1745474cff7f0991458cd7d525ffd9"
+    },
+    "pixijs-performance": {
+      "source": "pixijs/pixijs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/pixijs-performance/SKILL.md",
+      "computedHash": "410877b8b6ff8de5aff4a3e636f6b256d6943798721d906598e525731c1a7f84"
+    },
+    "pixijs-scene-container": {
+      "source": "pixijs/pixijs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/pixijs-scene-container/SKILL.md",
+      "computedHash": "c5cea512c0aff13d97938dd7fbc5955bc04513e367067455b7fa17583ee31c00"
+    },
+    "pixijs-scene-core-concepts": {
+      "source": "pixijs/pixijs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/pixijs-scene-core-concepts/SKILL.md",
+      "computedHash": "95174d1751f715c2efe42ec940837e9974c85d08f0cc29b6bbc3c985f3745392"
+    },
+    "pixijs-scene-dom-container": {
+      "source": "pixijs/pixijs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/pixijs-scene-dom-container/SKILL.md",
+      "computedHash": "00de3635d73b0f1679ec0d958e22446566e235d594bc7a087ee6434fe6360276"
+    },
+    "pixijs-scene-gif": {
+      "source": "pixijs/pixijs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/pixijs-scene-gif/SKILL.md",
+      "computedHash": "cda195839c1d019a959de47b42aaad86b90ccac7c4b7f312a8d01f60ecc75b9d"
+    },
+    "pixijs-scene-graphics": {
+      "source": "pixijs/pixijs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/pixijs-scene-graphics/SKILL.md",
+      "computedHash": "423872ff78d31b77d4486b16f355e9173011fa9f0a9614902b4bb2eca35f15c6"
+    },
+    "pixijs-scene-mesh": {
+      "source": "pixijs/pixijs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/pixijs-scene-mesh/SKILL.md",
+      "computedHash": "bb536a8d47a4dc8ba066e5597dc40f0f6805fa2f949d44fb3ef0fef147bc9b7e"
+    },
+    "pixijs-scene-particle-container": {
+      "source": "pixijs/pixijs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/pixijs-scene-particle-container/SKILL.md",
+      "computedHash": "837ee0a8aadc14bcbdba308cc36792ff11bbc41f5efe65939a4a4b7d448e089e"
+    },
+    "pixijs-scene-sprite": {
+      "source": "pixijs/pixijs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/pixijs-scene-sprite/SKILL.md",
+      "computedHash": "b4b1a983f96a9c06fe62e4a3889938e060c924d94e3ebce4771b07cc56a9dbc4"
+    },
+    "pixijs-scene-text": {
+      "source": "pixijs/pixijs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/pixijs-scene-text/SKILL.md",
+      "computedHash": "2dd70ab1dcb026a6512b321b372a4f5030fdbb2e22bf7fcfc2e67a9ce304af75"
+    },
+    "pixijs-ticker": {
+      "source": "pixijs/pixijs-skills",
+      "sourceType": "github",
+      "skillPath": "skills/pixijs-ticker/SKILL.md",
+      "computedHash": "6b3eec30377b1ec013a858301d309f3138eb512e7af8e1e8d0c3a759c8223618"
+    }
+  }
+}
