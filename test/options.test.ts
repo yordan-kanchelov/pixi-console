@@ -48,6 +48,23 @@ describe("resolveOptions", () => {
         expect(options.format).toEqual(DEFAULT_FORMAT_OPTIONS);
     });
 
+    it("defaults to no command line, no extra commands and no evaluator", () => {
+        expect(DEFAULT_OPTIONS).toMatchObject({ prompt: false, commands: {}, evaluator: null });
+    });
+
+    it("keeps the commands object as given, without touching the default", () => {
+        const commands = { spawn: () => "spawned" };
+        const evaluator = (line: string) => line;
+        const options = resolveOptions({ prompt: true, commands, evaluator });
+
+        expect(options.commands).toBe(commands);
+        expect(options.evaluator).toBe(evaluator);
+        expect(options.prompt).toBe(true);
+        expect(Object.keys(commands)).toEqual(["spawn"]);
+        expect(resolveOptions({ commands: undefined, evaluator: undefined }).commands).toEqual({});
+        expect(DEFAULT_OPTIONS.commands).toEqual({});
+    });
+
     it("never shares or mutates the default objects", () => {
         const options = resolveOptions();
 

@@ -3,19 +3,23 @@ import {
     BitmapFontManager,
     BitmapText,
     Cache,
+    Container,
     Graphics,
     Point,
     RenderTexture,
     Text,
-    type Container,
+    type Renderer,
 } from "pixi.js";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { cdp, userEvent } from "vitest/browser";
 
 import {
+    createJsEvaluator,
     DEFAULT_OPTIONS,
     LOG_LEVELS,
     PixiConsole,
     type ConsoleEntry,
+    type ConsoleEvaluator,
     type EntryKind,
     type LogLevel,
     type PixiConsoleInit,
@@ -191,6 +195,93 @@ function time(timestamp: number): string {
     const pad = (value: number, length = 2) => String(value).padStart(length, "0");
 
     return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}`;
+}
+
+/** Height of the command line row with the default font size and padding. */
+const PROMPT_HEIGHT = Math.round(DEFAULT_OPTIONS.fontSize * 1.4) + DEFAULT_OPTIONS.padding;
+
+/** The console's command line input; throws when there is none. */
+function promptOf(pixiConsole: PixiConsole): HTMLInputElement {
+    const input = pixiConsole.promptElement;
+
+    if (!input) throw new Error("No command line");
+
+    return input;
+}
+
+/** The `>` in front of the command line. */
+function glyphOf(pixiConsole: PixiConsole): Text | BitmapText {
+    const glyph = pixiConsole.getChildByLabel("prompt");
+
+    if (!(glyph instanceof Text || glyph instanceof BitmapText)) throw new Error("No prompt glyph");
+
+    return glyph;
+}
+
+/** Messages of the entries, oldest first. */
+function messages(pixiConsole: PixiConsole): string[] {
+    return pixiConsole.entries.map((entry) => entry.message);
+}
+
+/** The prompt row, mapped from the scene graph through the canvas content box, is where the input is on the page. */
+function expectAligned(pixiConsole: PixiConsole): void {
+    const canvas = app.canvas;
+    const rect = canvas.getBoundingClientRect();
+    const style = getComputedStyle(canvas);
+    const [paddingLeft, paddingTop, paddingRight, paddingBottom] = [
+        style.paddingLeft,
+        style.paddingTop,
+        style.paddingRight,
+        style.paddingBottom,
+    ].map((value) => parseFloat(value));
+    // The canvas's own CSS transform, if any, only scales and translates in these tests.
+    const scaleX = rect.width / canvas.offsetWidth;
+    const scaleY = rect.height / canvas.offsetHeight;
+    const left = rect.left + (canvas.clientLeft + paddingLeft!) * scaleX;
+    const top = rect.top + (canvas.clientTop + paddingTop!) * scaleY;
+    const unitX = ((canvas.clientWidth - paddingLeft! - paddingRight!) * scaleX) / app.screen.width;
+    const unitY = ((canvas.clientHeight - paddingTop! - paddingBottom!) * scaleY) / app.screen.height;
+    const from = pixiConsole.toGlobal(new Point(0, pixiConsole.consoleHeight - PROMPT_HEIGHT));
+    const to = pixiConsole.toGlobal(new Point(pixiConsole.consoleWidth, pixiConsole.consoleHeight));
+    const box = promptOf(pixiConsole).getBoundingClientRect();
+    const expected = {
+        left: left + from.x * unitX,
+        top: top + from.y * unitY,
+        right: left + to.x * unitX,
+        bottom: top + to.y * unitY,
+    };
+
+    expect(promptOf(pixiConsole).isConnected).toBe(true);
+
+    for (const side of ["left", "top", "right", "bottom"] as const) {
+        expect(Math.abs(box[side] - expected[side]), `${side}: ${box[side]} vs ${expected[side]}`).toBeLessThanOrEqual(
+            0.6,
+        );
+    }
+}
+
+/** The host element the console inserted next to the canvas. */
+function hostOf(pixiConsole: PixiConsole): Element | null {
+    return promptOf(pixiConsole).closest("[data-pixi-console]");
+}
+
+/** Moves the keyboard focus back to the page. */
+function blurActive(): void {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+}
+
+/** Changes the page and undoes it after the test. */
+function changePage(change: () => () => void): void {
+    cleanups.push(change());
+}
+
+/** Sets inline styles on the canvas; returns a function restoring the previous ones. */
+function styleCanvas(styles: Partial<CSSStyleDeclaration>): () => void {
+    const { cssText } = app.canvas.style;
+
+    Object.assign(app.canvas.style, styles);
+
+    return () => (app.canvas.style.cssText = cssText);
 }
 
 describe("PixiConsole", () => {
@@ -1172,7 +1263,7 @@ describe("lifecycle", () => {
         expect(pixiConsole.visible).toBe(true);
     });
 
-    it("ignores setters and methods after destroy", () => {
+    it("ignores setters and methods after destroy", async () => {
         const originalLog = console.log;
         const pixiConsole = create({ autoResize: { renderer: app.renderer } });
         const levels: LogLevel[] = ["log"];
@@ -1194,7 +1285,14 @@ describe("lifecycle", () => {
             pixiConsole.toolbar = false;
             pixiConsole.toolbar = true;
             pixiConsole.showOnError = false;
+            pixiConsole.prompt = true;
+            pixiConsole.evaluator = () => 1;
+            pixiConsole.history = ["x"];
             pixiConsole
+                .addCommand("late", () => 1)
+                .removeCommand("help")
+                .focusPrompt()
+                .blurPrompt()
                 .resize(300, 300)
                 .scrollTo(10)
                 .scrollBy(5)
@@ -1219,6 +1317,11 @@ describe("lifecycle", () => {
         expect(console.log).toBe(originalLog);
         expect(app.renderer.listenerCount("resize")).toBe(resizeListeners);
         expect(addEventListener).not.toHaveBeenCalled();
+        expect(pixiConsole.promptElement).toBeNull();
+        await expect(pixiConsole.execute("help")).resolves.toBeUndefined();
+        expect(pixiConsole.commands).toEqual({});
+        expect(pixiConsole.history).toEqual([]);
+        expect(document.querySelector("[data-pixi-console]")).toBeNull();
     });
 
     it("removes its wheel and pointercancel listeners when destroyed", () => {
@@ -1232,5 +1335,920 @@ describe("lifecycle", () => {
         expect(removeFromCanvas).toHaveBeenCalledWith("wheel", expect.any(Function));
         expect(removeFromWindow).toHaveBeenCalledWith("pointercancel", expect.any(Function), true);
         expect(wheel(400, 200, 10).defaultPrevented).toBe(false);
+    });
+});
+
+describe("command line", () => {
+    it("is off by default", () => {
+        const pixiConsole = create({ height: 300 });
+
+        for (let i = 0; i < 50; i++) pixiConsole.log(`line ${i}`);
+        render();
+
+        expect(pixiConsole.prompt).toBe(false);
+        expect(pixiConsole.promptElement).toBeNull();
+        expect(pixiConsole.getChildByLabel("prompt")).toBeNull();
+        expect(document.querySelector("[data-pixi-console]")).toBeNull();
+        // Rows fill the space between the toolbar and the bottom padding, as before.
+        expect(visibleLines(pixiConsole)).toHaveLength((300 - 32 - 8) / 20);
+    });
+
+    it("places the input over the prompt row", async () => {
+        const pixiConsole = create({ prompt: true });
+
+        pixiConsole.position.set(50, 40);
+        pixiConsole.scale.set(1.25);
+        render();
+
+        expectAligned(pixiConsole);
+        expect(hostOf(pixiConsole)?.parentNode).toBe(app.canvas.parentNode);
+        expect(hostOf(pixiConsole)?.previousElementSibling).toBe(app.canvas);
+
+        const input = promptOf(pixiConsole);
+
+        // Playwright only clicks an element that would get the click, so the input is on top.
+        await userEvent.click(input);
+
+        expect(document.activeElement).toBe(input);
+        expect(glyphOf(pixiConsole).alpha).toBe(1);
+
+        pixiConsole.blurPrompt();
+
+        expect(document.activeElement).not.toBe(input);
+        expect(glyphOf(pixiConsole).alpha).toBe(0.5);
+    });
+
+    it.each<[string, () => () => void]>([
+        [
+            "page scroll and a positioned, bordered wrapper",
+            () => {
+                const wrapper = document.createElement("div");
+                const spacer = document.body.appendChild(document.createElement("div"));
+
+                wrapper.style.cssText = "position: relative; border: 7px solid #333; padding: 5px; margin: 13px";
+                spacer.style.height = "3000px";
+                app.canvas.replaceWith(wrapper);
+                wrapper.append(app.canvas);
+                window.scrollTo(0, 120);
+                expect(window.scrollY).toBe(120);
+
+                return () => {
+                    wrapper.replaceWith(app.canvas);
+                    spacer.remove();
+                    window.scrollTo(0, 0);
+                };
+            },
+        ],
+        [
+            "a positioned body with a margin",
+            () => {
+                const { cssText } = document.body.style;
+
+                document.body.style.position = "relative";
+                document.body.style.margin = "30px 0 0 25px";
+
+                return () => (document.body.style.cssText = cssText);
+            },
+        ],
+        ["a canvas scaled by CSS", () => styleCanvas({ width: "400px", height: "300px" })],
+        [
+            "a canvas with its own transform",
+            () => styleCanvas({ transform: "scale(0.75) translate(10px, 5px)", transformOrigin: "20px 30px" }),
+        ],
+        ["canvas padding and border", () => styleCanvas({ padding: "6px", border: "2px solid red" })],
+    ])("stays aligned with %s", (_, change) => {
+        const pixiConsole = create({ prompt: true, height: 300 });
+
+        pixiConsole.position.set(30, 100);
+        render();
+        expectAligned(pixiConsole);
+
+        changePage(change);
+        render();
+
+        expectAligned(pixiConsole);
+        expect(hostOf(pixiConsole)?.parentNode).toBe(app.canvas.parentNode);
+    });
+
+    it("follows scene graph moves in the same frame, and the renderer size", () => {
+        const parent = app.stage.addChild(new Container());
+        const pixiConsole = create({
+            prompt: true,
+            autoResize: {
+                renderer: app.renderer,
+                layout: (screen) => ({ y: screen.height / 2, width: screen.width, height: screen.height / 2 }),
+            },
+        });
+
+        cleanups.push(() => parent.destroy());
+        parent.addChild(pixiConsole);
+        render();
+        expectAligned(pixiConsole);
+
+        parent.position.set(40, -30);
+        parent.scale.set(0.8, 0.9);
+        render();
+        expectAligned(pixiConsole);
+
+        try {
+            app.renderer.resize(400, 800);
+            render();
+
+            expect(pixiConsole.consoleWidth).toBe(400);
+            expectAligned(pixiConsole);
+        } finally {
+            app.renderer.resize(800, 600);
+        }
+
+        render();
+        expectAligned(pixiConsole);
+    });
+
+    it("runs what is typed", async () => {
+        const pixiConsole = create({ prompt: true });
+        const input = promptOf(pixiConsole);
+
+        render();
+        await userEvent.click(input);
+        await userEvent.keyboard("help{Enter}");
+        render();
+
+        expect(pixiConsole.entries.at(-2)).toMatchObject({ kind: "input", level: "log", message: "> help" });
+        expect(pixiConsole.entries.at(-1)).toMatchObject({ kind: "result", level: "log" });
+        expect(pixiConsole.entries.at(-1)?.message).toMatch(/^Commands:\n {2}clear +Removes every entry\n/);
+        expect(input.value).toBe("");
+        expect(document.activeElement).toBe(input);
+        expect(visibleLines(pixiConsole)).toContain("> help");
+        expect(pixiConsole.history).toEqual(["help"]);
+    });
+
+    it("displays its entries whatever the filter, without counting them", async () => {
+        const pixiConsole = create({ prompt: true, filter: ["error"] });
+
+        await pixiConsole.execute("help");
+        render();
+
+        expect(visibleLines(pixiConsole)).toContain("> help");
+        expect(visibleLines(pixiConsole)).toContain("Commands:");
+        expect(pixiConsole.counts).toEqual({ log: 0, info: 0, debug: 0, warn: 0, error: 0 });
+        expect(pixiConsole.visible).toBe(true);
+
+        // Not even errors, which don't show a hidden console either.
+        pixiConsole.hide();
+        await pixiConsole.execute("nope");
+        pixiConsole.addCommand("fail", () => {
+            throw new Error("failed");
+        });
+        await pixiConsole.execute("fail");
+
+        expect(pixiConsole.counts).toEqual({ log: 0, info: 0, debug: 0, warn: 0, error: 0 });
+        expect(pixiConsole.visible).toBe(false);
+    });
+
+    it("opens and focuses with the toggle key, which can then be typed", async () => {
+        const pixiConsole = create({ prompt: true, visible: false, toggleKey: "Backquote" });
+        const input = promptOf(pixiConsole);
+        const keydown = vi.fn();
+        const keyup = vi.fn();
+
+        render();
+        blurActive();
+        window.addEventListener("keydown", keydown);
+        window.addEventListener("keyup", keyup);
+        cleanups.push(() => {
+            window.removeEventListener("keydown", keydown);
+            window.removeEventListener("keyup", keyup);
+        });
+
+        await userEvent.keyboard("`");
+
+        expect(pixiConsole.visible).toBe(true);
+        expect(document.activeElement).toBe(input);
+        expect(input.value).toBe("");
+
+        keydown.mockClear();
+        keyup.mockClear();
+        await userEvent.keyboard("a`b");
+
+        expect(input.value).toBe("a`b");
+        expect(pixiConsole.visible).toBe(true);
+        expect(keydown).not.toHaveBeenCalled();
+        expect(keyup).toHaveBeenCalled();
+    });
+
+    it("clears the line on Escape, then gives the keys back to the page", async () => {
+        const pixiConsole = create({ prompt: true, toggleKey: "Backquote" });
+        const input = promptOf(pixiConsole);
+
+        render();
+        await userEvent.click(input);
+        await userEvent.keyboard("abc{Escape}");
+
+        expect(input.value).toBe("");
+        expect(document.activeElement).toBe(input);
+
+        await userEvent.keyboard("{Escape}");
+
+        expect(document.activeElement).not.toBe(input);
+        expect(pixiConsole.visible).toBe(true);
+
+        await userEvent.keyboard("`");
+
+        expect(pixiConsole.visible).toBe(false);
+        expect(input.isConnected).toBe(false);
+    });
+
+    it("recalls earlier lines with the arrow keys", async () => {
+        const pixiConsole = create({ prompt: true });
+        const input = promptOf(pixiConsole);
+
+        render();
+        await userEvent.click(input);
+        await userEvent.keyboard("a{Enter}  b {Enter}draft{ArrowUp}");
+        expect(input.value).toBe("b");
+
+        await userEvent.keyboard("{ArrowUp}");
+        expect(input.value).toBe("a");
+
+        await userEvent.keyboard("{ArrowDown}{ArrowDown}");
+        expect(input.value).toBe("draft");
+        expect(pixiConsole.history).toEqual(["a", "b"]);
+
+        pixiConsole.history = ["x", "y"];
+        await userEvent.fill(input, "");
+        await userEvent.keyboard("{ArrowUp}");
+
+        expect(pixiConsole.history).toEqual(["x", "y"]);
+        expect(input.value).toBe("y");
+    });
+
+    it("completes command names with Tab", async () => {
+        const pixiConsole = create({ prompt: true });
+        const input = promptOf(pixiConsole);
+        const prevented: boolean[] = [];
+
+        input.addEventListener("keydown", (event) => {
+            if (event.key === "Tab") prevented.push(event.defaultPrevented);
+        });
+        render();
+        await userEvent.click(input);
+        await userEvent.keyboard("he{Tab}");
+
+        expect(input.value).toBe("help ");
+
+        pixiConsole.addCommand("hello", () => "hi");
+        await userEvent.fill(input, "HE");
+        await userEvent.keyboard("{Tab}");
+
+        expect(input.value).toBe("hel");
+
+        await userEvent.keyboard("{Tab}");
+
+        expect(input.value).toBe("hel");
+        expect(pixiConsole.entries.at(-1)).toMatchObject({ kind: "result", message: "hello  help" });
+
+        // Nothing to complete: Tab moves the focus as usual.
+        await userEvent.fill(input, "");
+        await userEvent.keyboard("{Tab}");
+
+        expect(prevented).toEqual([true, true, true, false]);
+        expect(document.activeElement).not.toBe(input);
+    });
+
+    it("scrolls the log with PageUp and PageDown", async () => {
+        const pixiConsole = create({ prompt: true, height: 300 });
+
+        for (let i = 0; i < 100; i++) pixiConsole.log(`line ${i}`);
+        render();
+
+        const bottom = pixiConsole.scrollY;
+        const content = 300 - 32 - PROMPT_HEIGHT - 4;
+
+        await userEvent.click(promptOf(pixiConsole));
+        await userEvent.keyboard("{PageUp}{PageUp}");
+        expect(pixiConsole.scrollY).toBe(bottom - 2 * content);
+
+        await userEvent.keyboard("{PageDown}");
+        expect(pixiConsole.scrollY).toBe(bottom - content);
+
+        // Entering a line follows the log again.
+        await userEvent.keyboard("help{Enter}");
+        render();
+        expect(pixiConsole.isFollowing).toBe(true);
+        expect(visibleLines(pixiConsole).at(-1)).toBe("  help [command]  Lists commands, or describes one");
+    });
+
+    it("runs lines from code", async () => {
+        const evaluator = vi.fn<ConsoleEvaluator>((line) => {
+            switch (line) {
+                case "1+1":
+                    return 2;
+                case "text":
+                    return "1";
+                case "reject":
+                    return Promise.reject(new Error("nope"));
+                case "throw":
+                    throw new Error("thrown");
+                default:
+                    return undefined;
+            }
+        });
+        const pixiConsole = create({ evaluator });
+
+        // Synchronous results are printed right away.
+        const sum = pixiConsole.execute("  1+1  ");
+
+        expect(messages(pixiConsole)).toEqual(["> 1+1", "< 2"]);
+        await expect(sum).resolves.toBe(2);
+        expect(pixiConsole.lastResult).toBe(2);
+        expect(evaluator).toHaveBeenCalledWith("1+1", { pixiConsole, line: "1+1", lastResult: undefined });
+
+        await pixiConsole.execute("text");
+        expect(messages(pixiConsole).at(-1)).toBe('< "1"');
+
+        await pixiConsole.execute("nothing");
+        expect(pixiConsole.entries.at(-1)).toMatchObject({
+            message: "< undefined",
+            color: DEFAULT_OPTIONS.colors.debug,
+        });
+        expect(pixiConsole.lastResult).toBeUndefined();
+
+        await expect(pixiConsole.execute("reject")).resolves.toBeUndefined();
+        expect(pixiConsole.entries.at(-1)).toMatchObject({ kind: "result", level: "error" });
+        expect(messages(pixiConsole).at(-1)).toMatch(/^Uncaught \(in promise\) Error: nope\n/);
+
+        await expect(pixiConsole.execute("throw")).resolves.toBeUndefined();
+        expect(messages(pixiConsole).at(-1)).toMatch(/^Uncaught Error: thrown\n/);
+
+        // An EvalError whose message can't even be read.
+        const unreadable = new Proxy(new EvalError("hidden"), {
+            get: (target, key) => {
+                if (key === "message") throw new Error("no message");
+
+                return Reflect.get(target, key) as unknown;
+            },
+        });
+
+        pixiConsole.evaluator = () => {
+            throw unreadable;
+        };
+        await pixiConsole.execute("blocked");
+        expect(messages(pixiConsole).at(-1)).toMatch(/^EvalError: \nJavaScript evaluation is blocked/);
+        pixiConsole.evaluator = evaluator;
+
+        // Blank lines are ignored.
+        const count = pixiConsole.entries.length;
+
+        await expect(pixiConsole.execute("   ")).resolves.toBeUndefined();
+        expect(pixiConsole.entries).toHaveLength(count);
+        expect(evaluator).toHaveBeenCalledTimes(5);
+    });
+
+    it("runs commands and prints what they return", async () => {
+        const pixiConsole = create({
+            commands: {
+                chatty: () => {
+                    console.log("said on the way");
+
+                    return { done: true };
+                },
+                slow: {
+                    usage: "<ms>",
+                    description: "Answers later",
+                    run: async ([ms = "0"], { line, lastResult }) => {
+                        await new Promise((resolve) => setTimeout(resolve, Number(ms)));
+
+                        return `${line} after ${JSON.stringify(lastResult)}`;
+                    },
+                },
+                boom: () => {
+                    throw new Error("bad");
+                },
+                later: () => Promise.reject(new Error("rejected")),
+            },
+        });
+
+        await pixiConsole.execute("chatty");
+        expect(messages(pixiConsole)).toEqual(["> chatty", "said on the way", "{ done: true }"]);
+        expect(pixiConsole.entries.map((entry) => entry.kind)).toEqual(["input", undefined, "result"]);
+
+        const slow = pixiConsole.execute('SLOW "5"');
+
+        expect(messages(pixiConsole).at(-1)).toBe('> SLOW "5"');
+        await expect(slow).resolves.toBe('SLOW "5" after {"done":true}');
+        expect(messages(pixiConsole).at(-1)).toBe('SLOW "5" after {"done":true}');
+
+        await expect(pixiConsole.execute("boom")).resolves.toBeUndefined();
+        expect(pixiConsole.entries.at(-1)).toMatchObject({ kind: "result", level: "error" });
+        expect(messages(pixiConsole).at(-1)).toMatch(/^Error: bad\n\s+at /);
+
+        await expect(pixiConsole.execute("later")).resolves.toBeUndefined();
+        expect(messages(pixiConsole).at(-1)).toMatch(/^Error: rejected\n/);
+
+        await pixiConsole.execute("nope --flag");
+        expect(pixiConsole.entries.at(-1)).toMatchObject({
+            kind: "result",
+            level: "warn",
+            message: 'Unknown command "nope". Type help to list commands.',
+        });
+    });
+
+    it("keeps lastResult when a command returns nothing", async () => {
+        const pixiConsole = create({ evaluator: (line) => (line === "1+1" ? 2 : undefined) });
+
+        await pixiConsole.execute("1+1");
+        await pixiConsole.execute("clear");
+
+        expect(pixiConsole.entries).toHaveLength(0);
+        expect(pixiConsole.lastResult).toBe(2);
+
+        const help = await pixiConsole.execute("help");
+
+        expect(typeof help).toBe("string");
+        expect(pixiConsole.lastResult).toBe(help);
+    });
+
+    it("adds, replaces and removes commands", async () => {
+        const commands = { spawn: { usage: "<count>", description: "Spawns", run: () => "spawned" } };
+        const pixiConsole = create({ commands });
+
+        expect(Object.keys(pixiConsole.commands)).toEqual(["clear", "help", "spawn"]);
+        expect(pixiConsole.commands.spawn).toBe(commands.spawn);
+
+        const clear = vi.fn(() => "custom clear");
+
+        pixiConsole.addCommand("Clear", clear).removeCommand("spawn").removeCommand("unknown");
+
+        expect(Object.keys(pixiConsole.commands)).toEqual(["clear", "help"]);
+        expect(await pixiConsole.execute("CLEAR now")).toBe("custom clear");
+        expect(clear).toHaveBeenCalledWith(["now"], expect.objectContaining({ line: "CLEAR now" }));
+
+        pixiConsole.removeCommand("clear");
+        await pixiConsole.execute("clear");
+
+        expect(pixiConsole.entries.at(-1)?.level).toBe("warn");
+        expect(() => pixiConsole.addCommand("two words", () => 1)).toThrow(TypeError);
+
+        // The options object and the defaults are never changed.
+        expect(Object.keys(commands)).toEqual(["spawn"]);
+        expect(DEFAULT_OPTIONS.commands).toEqual({});
+    });
+
+    it("rejects invalid command names before touching the page", () => {
+        const originalLog = console.log;
+
+        expect(() => new PixiConsole({ commands: { "a.b": () => 1 } })).toThrow(/Invalid command name "a.b"/);
+        expect(console.log).toBe(originalLog);
+    });
+
+    it("evaluates JavaScript with createJsEvaluator", async () => {
+        const log = vi.spyOn(console, "log");
+        const pixiConsole = create({ evaluator: createJsEvaluator({ scope: { app } }) });
+
+        expect(await pixiConsole.execute("app.screen.width")).toBe(800);
+        expect(await pixiConsole.execute("$_ / 2")).toBe(400);
+        expect(await pixiConsole.execute("await Promise.resolve('x')")).toBe("x");
+        expect(messages(pixiConsole)).toEqual([
+            "> app.screen.width",
+            "< 800",
+            "> $_ / 2",
+            "< 400",
+            "> await Promise.resolve('x')",
+            '< "x"',
+        ]);
+
+        await pixiConsole.execute("missing + 1");
+        expect(messages(pixiConsole).at(-1)).toMatch(/^Uncaught ReferenceError: missing is not defined/);
+
+        // Commands come first; parentheses force JavaScript.
+        expect(await pixiConsole.execute("help")).toMatch(
+            /\nAnything else runs as JavaScript\. \$_ is the last result\.$/,
+        );
+        await pixiConsole.execute("(help)");
+        expect(messages(pixiConsole).at(-1)).toMatch(/^Uncaught ReferenceError: help is not defined/);
+
+        expect(log).not.toHaveBeenCalled();
+    });
+
+    it("explains when the page's Content-Security-Policy blocks evaluation", async () => {
+        const iframe = document.createElement("iframe");
+        const loaded = new Promise((resolve) => iframe.addEventListener("load", resolve, { once: true }));
+
+        iframe.srcdoc = `<meta http-equiv="Content-Security-Policy" content="script-src 'unsafe-inline'">`;
+        document.body.append(iframe);
+        cleanups.push(() => iframe.remove());
+        await loaded;
+
+        const frame = iframe.contentWindow as unknown as typeof globalThis;
+        const pixiConsole = create({ evaluator: (line) => frame.eval(line) as unknown });
+
+        await expect(pixiConsole.execute("1 + 1")).resolves.toBeUndefined();
+
+        const failures = pixiConsole.entries.filter((entry) => entry.level === "error");
+
+        expect(failures).toHaveLength(1);
+        expect(failures[0]?.message).toMatch(/^EvalError: /);
+        expect(failures[0]?.message).toContain("Content-Security-Policy");
+        expect(failures[0]?.message).not.toMatch(/\n\s+at /);
+
+        // Commands still work.
+        expect(await pixiConsole.execute("help")).toMatch(/^Commands:/);
+    });
+
+    it("swaps the default placeholder when the evaluator changes", () => {
+        const pixiConsole = create({ prompt: true });
+        const input = promptOf(pixiConsole);
+
+        expect(input.placeholder).toBe("Type help and press Enter");
+
+        pixiConsole.evaluator = createJsEvaluator();
+        expect(input.placeholder).toBe("Type a command or JavaScript");
+
+        input.placeholder = "Mine";
+        pixiConsole.evaluator = null;
+        expect(input.placeholder).toBe("Mine");
+        expect(pixiConsole.evaluator).toBeNull();
+    });
+
+    it("takes the input out of the page while the console isn't displayed", async () => {
+        const parent = app.stage.addChild(new Container());
+        const pixiConsole = create({ prompt: true, height: 300 });
+        const input = promptOf(pixiConsole);
+
+        cleanups.push(() => parent.destroy());
+        parent.addChild(pixiConsole);
+        render();
+        await userEvent.click(input);
+        await userEvent.keyboard("draft");
+
+        pixiConsole.hide();
+
+        expect(input.isConnected).toBe(false);
+        expect(document.activeElement).not.toBe(input);
+
+        pixiConsole.show();
+        render();
+
+        expect(input.isConnected).toBe(true);
+        expect(input.value).toBe("draft");
+
+        const hidden: [string, () => void, () => void][] = [
+            ["visible", () => (pixiConsole.visible = false), () => (pixiConsole.visible = true)],
+            ["renderable", () => (pixiConsole.renderable = false), () => (pixiConsole.renderable = true)],
+            ["parent visible", () => (parent.visible = false), () => (parent.visible = true)],
+            ["parent alpha", () => (parent.alpha = 0), () => (parent.alpha = 1)],
+        ];
+
+        for (const [name, hide, show] of hidden) {
+            hide();
+            render();
+            expect(input.isConnected, name).toBe(false);
+
+            show();
+            render();
+            expect(input.isConnected, name).toBe(true);
+        }
+
+        parent.alpha = 0.5;
+        render();
+        expect(getComputedStyle(hostOf(pixiConsole)!).opacity).toBe("0.5");
+
+        pixiConsole.removeFromParent();
+        expect(input.isConnected).toBe(false);
+
+        parent.addChild(pixiConsole);
+        render();
+        expect(input.isConnected).toBe(true);
+    });
+
+    it("takes the input out of the page while the canvas is out of it or fullscreen", () => {
+        const pixiConsole = create({ prompt: true, height: 300 });
+        const input = promptOf(pixiConsole);
+        const { parentNode, nextSibling } = app.canvas;
+
+        render();
+        expect(input.isConnected).toBe(true);
+
+        app.canvas.remove();
+        cleanups.push(() => parentNode?.insertBefore(app.canvas, nextSibling));
+        render();
+        expect(input.isConnected).toBe(false);
+
+        parentNode?.insertBefore(app.canvas, nextSibling);
+        render();
+        expect(input.isConnected).toBe(true);
+
+        // Nothing can be drawn over a fullscreen element.
+        const fullscreen = vi.spyOn(document, "fullscreenElement", "get").mockReturnValue(app.canvas);
+
+        render();
+        expect(input.isConnected).toBe(false);
+
+        fullscreen.mockReturnValue(null);
+        render();
+        expectAligned(pixiConsole);
+    });
+
+    it("works with a canvas in a shadow root", async () => {
+        const pixiConsole = create({ prompt: true, height: 300 });
+        const shadowHost = document.createElement("div");
+        const root = shadowHost.attachShadow({ mode: "open" });
+        const input = promptOf(pixiConsole);
+
+        app.canvas.before(shadowHost);
+        root.append(app.canvas);
+        cleanups.push(() => shadowHost.replaceWith(app.canvas));
+
+        // pixi's renderingToScreen is false for a canvas outside document.body.
+        render();
+        expect(app.renderer.renderingToScreen).toBe(false);
+        expect(hostOf(pixiConsole)?.parentNode).toBe(root);
+        expectAligned(pixiConsole);
+
+        await userEvent.click(input);
+        await userEvent.keyboard("help{Enter}");
+
+        expect(input.matches(":focus")).toBe(true);
+        expect(messages(pixiConsole)).toContain("> help");
+
+        pixiConsole.visible = false;
+        render();
+        expect(input.isConnected).toBe(false);
+    });
+
+    it("isn't moved or detached by RenderTexture passes", () => {
+        const pixiConsole = create({ prompt: true, height: 300 });
+        const texture = RenderTexture.create({ width: 800, height: 600 });
+
+        cleanups.push(() => texture.destroy(true));
+        render();
+
+        const before = promptOf(pixiConsole).getBoundingClientRect();
+
+        pixiConsole.x = 100;
+        pixiConsole.visible = false;
+        pixiConsole.visible = true;
+        app.renderer.render({ container: app.stage, target: texture });
+
+        expect(promptOf(pixiConsole).isConnected).toBe(true);
+        expect(promptOf(pixiConsole).getBoundingClientRect().left).toBe(before.left);
+
+        render();
+        expectAligned(pixiConsole);
+    });
+
+    it("removes the input when destroyed", async () => {
+        const pixiConsole = create({ prompt: true, toggleKey: "Backquote" });
+        const input = promptOf(pixiConsole);
+
+        render();
+        await userEvent.click(input);
+        pixiConsole.destroy();
+
+        expect(input.isConnected).toBe(false);
+        expect(document.querySelector("[data-pixi-console]")).toBeNull();
+        expect(pixiConsole.promptElement).toBeNull();
+        expect(() => render()).not.toThrow();
+        await expect(userEvent.keyboard("`a{Enter}")).resolves.toBeUndefined();
+    });
+
+    it("drops results that arrive after destroy", async () => {
+        let resolve!: (value: unknown) => void;
+        const pixiConsole = create({ commands: { wait: () => new Promise((done) => (resolve = done)) } });
+        const done = pixiConsole.execute("wait");
+
+        pixiConsole.destroy();
+        resolve({ big: "object" });
+
+        await expect(done).resolves.toEqual({ big: "object" });
+        expect(pixiConsole.lastResult).toBeUndefined();
+    });
+
+    it.each(
+        (["bitmap", "canvas"] as const).flatMap((textRenderer) =>
+            [true, false].flatMap((toolbar) =>
+                [true, false].map((interactive) => ({ textRenderer, toolbar, interactive })),
+            ),
+        ),
+    )("works with $textRenderer text, toolbar $toolbar and interactive $interactive", async (options) => {
+        const pixiConsole = create({ ...options, prompt: true, height: 300 });
+        const input = promptOf(pixiConsole);
+
+        render();
+        expectAligned(pixiConsole);
+
+        await userEvent.click(input);
+        expect(document.activeElement).toBe(input);
+
+        await userEvent.keyboard("help{Enter}");
+        expect(messages(pixiConsole)).toContain("> help");
+        expect(glyphOf(pixiConsole)).toBeInstanceOf(options.textRenderer === "bitmap" ? BitmapText : Text);
+        expect(glyphOf(pixiConsole).text).toBe(">");
+    });
+
+    it("gives each console its own input, history and commands", async () => {
+        const a = create({ prompt: true, height: 250 });
+        const b = create({ prompt: true, height: 250 });
+
+        b.y = 300;
+        render();
+
+        const [inputA, inputB] = [promptOf(a), promptOf(b)];
+        const hosts = [...document.querySelectorAll("[data-pixi-console]")];
+
+        expect(hosts).toEqual([hostOf(a), hostOf(b)]);
+        expect(hosts.every((host) => host.parentNode === app.canvas.parentNode)).toBe(true);
+
+        await userEvent.click(inputA);
+        render();
+        render();
+
+        expect(document.activeElement).toBe(inputA);
+
+        await userEvent.keyboard("hi{Enter}typed");
+        expect(inputA.value).toBe("typed");
+        expect(inputB.value).toBe("");
+        expect(a.history).toEqual(["hi"]);
+        expect(b.history).toEqual([]);
+
+        a.addCommand("only-a", () => "a");
+        await b.execute("only-a");
+        expect(b.entries.at(-1)?.level).toBe("warn");
+        expect(a.commands).toHaveProperty("only-a");
+        expect(b.commands).not.toHaveProperty("only-a");
+    });
+
+    it("can be turned on and off at runtime", () => {
+        const pixiConsole = create({ height: 300 });
+
+        for (let i = 0; i < 50; i++) pixiConsole.log(`line ${i}`);
+        render();
+
+        const rowCount = visibleLines(pixiConsole).length;
+
+        pixiConsole.prompt = true;
+        render();
+
+        const input = promptOf(pixiConsole);
+
+        expect(visibleLines(pixiConsole).length).toBeLessThan(rowCount);
+        expect(visibleLines(pixiConsole).at(-1)).toBe("line 49");
+        expect(input.isConnected).toBe(true);
+        expect(glyphOf(pixiConsole).visible).toBe(true);
+
+        // The newest line ends above the prompt row.
+        const newest = rows(pixiConsole).find((row) => row.visible && row.text === "line 49");
+
+        expect(newest!.getBounds().bottom).toBeLessThanOrEqual(300 - PROMPT_HEIGHT);
+
+        pixiConsole.prompt = false;
+        render();
+
+        expect(input.isConnected).toBe(false);
+        expect(pixiConsole.promptElement).toBe(input);
+        expect(glyphOf(pixiConsole).visible).toBe(false);
+        expect(visibleLines(pixiConsole)).toHaveLength(rowCount);
+    });
+
+    it("pastes several lines as one", () => {
+        const pixiConsole = create({ prompt: true });
+        const input = promptOf(pixiConsole);
+        const data = new DataTransfer();
+
+        render();
+        data.setData("text/plain", "a\nb\r\nc");
+        input.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
+
+        expect(input.value).toBe("a b c");
+    });
+
+    it("doesn't toggle while typing into an input in a shadow root", async () => {
+        const pixiConsole = create({ visible: false, toggleKey: "Backquote" });
+        const host = document.body.appendChild(document.createElement("div"));
+        const field = host.attachShadow({ mode: "open" }).appendChild(document.createElement("input"));
+
+        cleanups.push(() => host.remove());
+        field.focus();
+        await userEvent.keyboard("`");
+
+        expect(pixiConsole.visible).toBe(false);
+        expect(field.value).toBe("`");
+    });
+
+    it("focuses from code once it can be placed", () => {
+        const parent = app.stage.addChild(new Container());
+        // The renderer is known, but the console isn't on the stage yet.
+        const pixiConsole = new PixiConsole({ prompt: true, toggleKey: null, autoResize: { renderer: app.renderer } });
+        const input = promptOf(pixiConsole);
+
+        consoles.push(pixiConsole);
+        cleanups.push(() => parent.destroy());
+        blurActive();
+
+        pixiConsole.focusPrompt();
+
+        expect(pixiConsole.visible).toBe(true);
+        expect(input.isConnected).toBe(false);
+
+        parent.addChild(pixiConsole);
+        render();
+
+        expect(document.activeElement).toBe(input);
+
+        // Placed and focused right away, e.g. inside a click handler on a phone.
+        pixiConsole.hide();
+        render();
+        pixiConsole.focusPrompt();
+
+        expect(document.activeElement).toBe(input);
+        expectAligned(pixiConsole);
+
+        // Not while a parent is hidden, and hiding the console cancels the pending focus.
+        pixiConsole.blurPrompt().hide();
+        parent.visible = false;
+        pixiConsole.focusPrompt();
+
+        expect(input.isConnected).toBe(false);
+
+        pixiConsole.hide();
+        parent.visible = true;
+        pixiConsole.show();
+        render();
+
+        expect(input.isConnected).toBe(true);
+        expect(document.activeElement).not.toBe(input);
+
+        // Nothing to focus without a prompt.
+        const plain = create({ visible: false });
+
+        expect(plain.focusPrompt().visible).toBe(false);
+        expect(plain.promptElement).toBeNull();
+    });
+
+    it("tells when it can't find the canvas", async () => {
+        const pixiConsole = create({ prompt: true });
+        const onRender = (pixiConsole.getChildByLabel("lines") as Container).onRender as (renderer?: Renderer) => void;
+
+        // pixi.js before 8.7 calls onRender without the renderer.
+        onRender();
+        onRender();
+
+        const notices = pixiConsole.entries.filter((entry) => entry.level === "warn");
+
+        expect(notices).toHaveLength(1);
+        expect(notices[0]).toMatchObject({
+            kind: "result",
+            message: "The command line needs pixi.js 8.7+ or the autoResize option to find the canvas.",
+        });
+        expect(promptOf(pixiConsole).isConnected).toBe(false);
+        expect(await pixiConsole.execute("help")).toMatch(/^Commands:/);
+
+        // The renderer passed on 8.7+ is enough.
+        render();
+        expect(promptOf(pixiConsole).isConnected).toBe(true);
+    });
+
+    it("draws the prompt row under the log", () => {
+        const pixiConsole = create({ prompt: true, height: 300 });
+        const glyph = glyphOf(pixiConsole);
+
+        render();
+
+        expect(glyph.eventMode).toBe("none");
+        expect(glyph.tint).toBe(DEFAULT_OPTIONS.colors.info);
+        expect(glyph.x).toBe(DEFAULT_OPTIONS.padding);
+        expect(glyph.y).toBeGreaterThanOrEqual(300 - PROMPT_HEIGHT);
+        expect(glyph.y + glyph.height).toBeLessThanOrEqual(300);
+        expect(pixiConsole.getChildIndex(glyph)).toBe(pixiConsole.children.length - 1);
+
+        pixiConsole.resize(500, 200);
+        expect(glyph.y).toBeGreaterThanOrEqual(200 - PROMPT_HEIGHT);
+
+        const input = promptOf(pixiConsole);
+
+        expect(input.getAttribute("aria-label")).toBe("Console command");
+        expect(getComputedStyle(input).color).toBe("rgb(230, 237, 243)");
+        expect(getComputedStyle(input).caretColor).toBe("rgb(88, 166, 255)");
+    });
+
+    it("ignores Enter while composing text with an IME", async () => {
+        const pixiConsole = create({ prompt: true });
+        const input = promptOf(pixiConsole);
+        const session = cdp();
+
+        render();
+        await userEvent.click(input);
+        await session.send("Input.imeSetComposition", { text: "にほん", selectionStart: 3, selectionEnd: 3 });
+
+        expect(input.value).toBe("にほん");
+
+        await userEvent.keyboard("{Enter}");
+
+        expect(pixiConsole.entries).toHaveLength(0);
+
+        await session.send("Input.insertText", { text: "にほん" });
+        await userEvent.keyboard("{Enter}");
+
+        expect(messages(pixiConsole)[0]).toBe("> にほん");
     });
 });

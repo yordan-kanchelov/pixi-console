@@ -1,5 +1,6 @@
 import type { ColorSource, Rectangle, Renderer } from "pixi.js";
 
+import type { CommandHandler, ConsoleCommand, ConsoleEvaluator } from "./core/commands";
 import { DEFAULT_FORMAT_OPTIONS, numberOr, resolveFormatOptions, type FormatOptions } from "./core/format";
 import { DEFAULT_MAX_ENTRIES } from "./core/store";
 import { LOG_LEVELS, type LogLevel } from "./core/types";
@@ -43,7 +44,11 @@ export interface PixiConsoleOptions {
     /** Show the console automatically when an error is logged or thrown. @default true */
     showOnError: boolean;
 
-    /** Levels that are displayed. Hidden levels are still recorded and can be re-enabled later. @default all levels */
+    /**
+     * Levels that are displayed. Hidden levels are still recorded and can be re-enabled later.
+     * Command-line input and results are always displayed.
+     * @default all levels
+     */
     filter: readonly LogLevel[];
     /**
      * Maximum number of entries kept in memory. Oldest entries are dropped first.
@@ -79,7 +84,11 @@ export interface PixiConsoleOptions {
     fontSize: number;
     /** Height of one line of text. @default round(fontSize * 1.4) */
     lineHeight?: number;
-    /** Resolution of the rendered glyphs. @default window.devicePixelRatio */
+    /**
+     * Resolution of the rendered glyphs. By default they follow the renderer's resolution (before the
+     * console is first rendered, the {@link autoResize} renderer's or `window.devicePixelRatio`).
+     * @default the renderer's resolution
+     */
     resolution?: number;
     /** Inner padding in pixels. @default 8 */
     padding: number;
@@ -96,15 +105,48 @@ export interface PixiConsoleOptions {
      * @default true
      */
     toolbar: boolean;
-    /** Enable wheel and drag scrolling and toolbar buttons. Set to `false` to let pointer events pass through. @default true */
+    /**
+     * Enable wheel and drag scrolling and toolbar buttons. Set to `false` to let pointer events pass
+     * through. The command line stays tappable when {@link prompt} is on.
+     * @default true
+     */
     interactive: boolean;
     /**
      * `KeyboardEvent.code` or `KeyboardEvent.key` that toggles the console, or `null` to disable.
+     * Ignored while typing in a text field. With {@link prompt}, opening the console with it focuses
+     * the command line.
      * @default "Backquote"
      */
     toggleKey: string | null;
     /** Keep the console sized to the renderer screen, e.g. across orientation changes. @default null */
     autoResize: AutoResizeOptions | null;
+
+    /**
+     * Show a command line under the log. Entering a line runs a {@link commands | command} or, when
+     * no command matches, the {@link evaluator}. It is a native `<input>` placed over the canvas, so
+     * on-screen keyboards, IME, autocorrect and paste work as usual. Keys typed into it do not reach
+     * `window` keydown listeners: they neither toggle the console nor move your game. Opening the
+     * console with {@link toggleKey} focuses it. Needs pixi.js 8.7+ or {@link autoResize} to find
+     * the canvas. Can be changed later via {@link PixiConsole.prompt}.
+     * @default false
+     */
+    prompt: boolean;
+    /**
+     * Commands for the command line and {@link PixiConsole.execute}, by name, added to the built-in
+     * `help` and `clear`. A function is shorthand for `{ run }`. Names are one word
+     * (`/^[a-z][\w:-]*$/i`) and case-insensitive; a command named like a built-in replaces it.
+     * @example { spawn: { usage: "<count>", description: "Spawn enemies", run: ([count = "1"]) => game.spawn(Number(count)) } }
+     * @default {}
+     */
+    commands: Readonly<Record<string, ConsoleCommand | CommandHandler>>;
+    /**
+     * Runs lines whose first word is not a command, e.g. {@link createJsEvaluator} to evaluate
+     * JavaScript. `null` answers "Unknown command" instead. Whoever can type into the console can run
+     * it: keep JavaScript evaluation out of production builds.
+     * Can be changed later via {@link PixiConsole.evaluator}.
+     * @default null
+     */
+    evaluator: ConsoleEvaluator | null;
 }
 
 /** Default text colour per level. */
@@ -142,6 +184,9 @@ export const DEFAULT_OPTIONS: Readonly<PixiConsoleOptions> = {
     interactive: true,
     toggleKey: "Backquote",
     autoResize: null,
+    prompt: false,
+    commands: {},
+    evaluator: null,
 };
 
 /** Options accepted by the {@link PixiConsole} constructor. Every field is optional. */

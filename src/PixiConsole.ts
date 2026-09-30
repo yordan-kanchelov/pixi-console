@@ -4,6 +4,7 @@ import {
     BitmapText,
     Cache,
     CanvasTextMetrics,
+    Color,
     Container,
     Graphics,
     Point,
@@ -18,10 +19,22 @@ import {
     type Renderer,
 } from "pixi.js";
 
+import {
+    builtinCommands,
+    CommandRegistry,
+    isEvalBlocked,
+    isThenable,
+    parseCommandLine,
+    type CommandContext,
+    type CommandHandler,
+    type ConsoleCommand,
+    type ConsoleEvaluator,
+} from "./core/commands";
 import { formatArgs, numberOr } from "./core/format";
+import { InputHistory } from "./core/history";
 import { interceptConsole, interceptGlobalErrors, type InterceptedMethod } from "./core/intercept";
 import { LogStore, type StoredEntry } from "./core/store";
-import { LOG_LEVELS, type ConsoleEntry, type LogLevel } from "./core/types";
+import { LOG_LEVELS, type ConsoleEntry, type EntryKind, type LogLevel } from "./core/types";
 import {
     DEFAULT_OPTIONS,
     resolveOptions,
@@ -30,6 +43,7 @@ import {
     type PixiConsoleInit,
     type PixiConsoleOptions,
 } from "./options";
+import { PromptInput, type PromptGeometry } from "./ui/PromptInput";
 import { Toolbar } from "./ui/Toolbar";
 
 type Label = Text | BitmapText;
@@ -72,6 +86,16 @@ interface Drag {
 
 const SCROLLBAR_WIDTH = 4;
 const MIN_THUMB_HEIGHT = 16;
+
+/** Placeholders of the command line, without and with an evaluator. */
+const PROMPT_PLACEHOLDER = "Type help and press Enter";
+const EVALUATOR_PLACEHOLDER = "Type a command or JavaScript";
+/** Alpha of the `>` glyph while the command line doesn't have focus. */
+const PROMPT_IDLE_ALPHA = 0.5;
+const EVAL_BLOCKED_HINT =
+    "JavaScript evaluation is blocked by this page's Content-Security-Policy ('unsafe-eval' is not allowed). " +
+    "Commands still work: add them with addCommand().";
+const NO_CANVAS_NOTICE = "The command line needs pixi.js 8.7+ or the autoResize option to find the canvas.";
 
 /**
  * Pointer events that stop at the console, so that pressing, tapping or wheeling over it doesn't also
@@ -160,6 +184,22 @@ export class PixiConsole extends Container {
     private _wheelTarget: HTMLElement | null = null;
     private readonly _wheelPoint = new Point();
 
+    private readonly _registry = new CommandRegistry();
+    private readonly _history = new InputHistory();
+    /** The command line's DOM input, created the first time {@link prompt} is enabled. */
+    private _promptInput: PromptInput | null = null;
+    /** The `>` in front of the command line. */
+    private _promptGlyph: Label | null = null;
+    private _lastResult: unknown;
+    /** Focus the command line as soon as it can be placed, see {@link focusPrompt}. */
+    private _pendingFocus = false;
+    /** Whether the notice that the canvas can't be found was printed. */
+    private _promptNotice = false;
+    /** The prompt row's top-left corner, and the ends of one local unit along x and y from it, in global coordinates. */
+    private readonly _rowOrigin = new Point();
+    private readonly _rowAlongX = new Point();
+    private readonly _rowAlongY = new Point();
+
     private _unhookConsole?: () => void;
     private _unhookErrors?: () => void;
     private _removeKeyListener?: () => void;
@@ -176,6 +216,10 @@ export class PixiConsole extends Container {
         this._filter = new Set(this._options.filter);
         this._renderer = this._options.autoResize?.renderer ?? null;
         this.visible = this._options.visible;
+
+        // Before any global hook is installed, since an invalid command name throws.
+        for (const [name, command] of Object.entries(builtinCommands())) this._registry.add(name, command);
+        for (const [name, command] of Object.entries(this._options.commands)) this._registry.add(name, command);
 
         const { fontSize, fontFamily } = this._options;
 
@@ -206,6 +250,11 @@ export class PixiConsole extends Container {
         this.captureErrors = this._options.captureErrors;
         this.toggleKey = this._options.toggleKey;
         this.autoResize = this._options.autoResize;
+        this.prompt = this._options.prompt;
+
+        // The command line lives in the document, next to the canvas: it goes when the console leaves
+        // the stage, and comes back with the next render after it is added again.
+        this.on("removed", () => this._promptInput?.detach());
 
         // On a private child, so that `onRender` stays free for users.
         this._content.onRender = (renderer?: Renderer) => this._onFrame(renderer);
@@ -390,8 +439,15 @@ export class PixiConsole extends Container {
         if (!key || typeof window === "undefined") return;
 
         const onKeyDown = (event: KeyboardEvent) => {
-            if (event.repeat || (event.code !== key && event.key !== key) || isEditable(event.target)) return;
+            if (event.repeat || (event.code !== key && event.key !== key) || isEditable(event)) return;
+
             this.toggle();
+
+            if (this.visible && this._options.prompt) {
+                // Otherwise the key would be typed into the command line it focuses.
+                event.preventDefault();
+                this.focusPrompt();
+            }
         };
 
         window.addEventListener("keydown", onKeyDown);
@@ -490,12 +546,197 @@ export class PixiConsole extends Container {
         this._drag = null;
         this._pressed.clear();
         this._detachWheel();
+        // Right away rather than on the next render: blurring closes the on-screen keyboard.
+        this._pendingFocus = false;
+        this._promptInput?.detach();
 
         return this;
     }
 
     toggle(): this {
         return this.visible ? this.hide() : this.show();
+    }
+
+    // ------------------------------------------------------------------ command line
+
+    /** Whether the command line is shown, see {@link PixiConsoleOptions.prompt}. */
+    get prompt(): boolean {
+        return this._options.prompt;
+    }
+
+    set prompt(value: boolean) {
+        if (this.destroyed) return;
+
+        this._options.prompt = value;
+
+        if (value) {
+            this._promptGlyph ??= this._createPromptGlyph();
+            this._promptInput ??= this._createPromptInput();
+        } else {
+            this._pendingFocus = false;
+            this._promptInput?.detach();
+        }
+
+        // The log makes room for the prompt row. Its width doesn't change, so nothing is wrapped again.
+        this._applySize();
+        this._invalidate();
+    }
+
+    /**
+     * The command line's `<input>`, created the first time {@link prompt} is enabled and kept until
+     * {@link destroy}; `null` before that. Use it for `placeholder`, `maxLength`, extra listeners or
+     * styling. It is only in the document while the console is displayed.
+     */
+    get promptElement(): HTMLInputElement | null {
+        return this._promptInput?.element ?? null;
+    }
+
+    /** Runs lines that are not commands, see {@link PixiConsoleOptions.evaluator}. */
+    get evaluator(): ConsoleEvaluator | null {
+        return this._options.evaluator;
+    }
+
+    set evaluator(value: ConsoleEvaluator | null) {
+        if (this.destroyed) return;
+
+        this._options.evaluator = value;
+
+        const input = this._promptInput?.element;
+
+        // Only swap a default placeholder, never one the app set.
+        if (input && (input.placeholder === PROMPT_PLACEHOLDER || input.placeholder === EVALUATOR_PLACEHOLDER)) {
+            input.placeholder = this._placeholder;
+        }
+    }
+
+    /**
+     * Registered commands by lower-case name, built-ins included. A snapshot: change it with
+     * {@link addCommand} / {@link removeCommand}.
+     */
+    get commands(): Readonly<Record<string, Readonly<ConsoleCommand>>> {
+        return this._registry.entries();
+    }
+
+    /**
+     * Registers or replaces a command. Names are case-insensitive.
+     * @throws TypeError when `name` is not one word matching `/^[a-z][\w:-]*$/i`.
+     * @example devConsole.addCommand("fps", () => app.ticker.FPS.toFixed(1));
+     */
+    addCommand(name: string, command: ConsoleCommand | CommandHandler): this {
+        if (this.destroyed) return this;
+
+        this._registry.add(name, command);
+
+        return this;
+    }
+
+    /** Unregisters a command, built-ins included. Unknown names are ignored. */
+    removeCommand(name: string): this {
+        this._registry.remove(name);
+
+        return this;
+    }
+
+    /**
+     * Runs a line as if it was entered at the prompt: echoes it as `> line`, runs the matching command
+     * or the {@link evaluator}, and prints the result. Works whether or not {@link prompt} is on.
+     * Synchronous results are printed before this returns. Not added to {@link history}.
+     * @returns The result, awaited when it is a promise; `undefined` when the line was blank or failed.
+     * Failures are printed, never thrown or rejected.
+     */
+    execute(line: string): Promise<unknown> {
+        const trimmed = line.trim();
+
+        if (this.destroyed || trimmed === "") return Promise.resolve(undefined);
+
+        this._printLine("input", "log", `> ${trimmed}`, this._options.colors.info);
+
+        const { name, args } = parseCommandLine(trimmed);
+        const command = this._registry.get(name);
+        const { evaluator } = this._options;
+
+        if (!command && !evaluator) {
+            const word = trimmed.split(/\s/, 1)[0] ?? name;
+
+            this._printLine("result", "warn", `Unknown command "${word}". Type help to list commands.`);
+
+            return Promise.resolve(undefined);
+        }
+
+        const context: CommandContext = { pixiConsole: this, line: trimmed, lastResult: this._lastResult };
+        const fromEvaluator = !command;
+        let result: unknown;
+
+        try {
+            result = command ? command.run(args, context) : evaluator?.(trimmed, context);
+
+            if (isThenable(result)) {
+                // Handled here, so the console's own unhandledrejection capture never reports it again.
+                return Promise.resolve(result).then(
+                    (value) => {
+                        this._printResult(value, fromEvaluator);
+
+                        return value;
+                    },
+                    (error: unknown) => {
+                        this._printFailure(error, fromEvaluator, true);
+
+                        return undefined;
+                    },
+                );
+            }
+        } catch (error) {
+            this._printFailure(error, fromEvaluator, false);
+
+            return Promise.resolve(undefined);
+        }
+
+        this._printResult(result, fromEvaluator);
+
+        return Promise.resolve(result);
+    }
+
+    /** What the last line produced: every evaluator result, and command results other than `undefined`. */
+    get lastResult(): unknown {
+        return this._lastResult;
+    }
+
+    /**
+     * Lines entered at the prompt, oldest first, at most 100. Assign it to restore a saved history,
+     * e.g. from localStorage.
+     */
+    get history(): readonly string[] {
+        return this._history.lines;
+    }
+
+    set history(lines: readonly string[]) {
+        if (this.destroyed) return;
+
+        this._history.lines = lines;
+    }
+
+    /**
+     * Shows the console and focuses the command line. Does nothing when {@link prompt} is off. If the
+     * input can't be placed yet (renderer not known), it is focused after the next render. On touch
+     * devices the on-screen keyboard only opens when this runs inside a user gesture.
+     */
+    focusPrompt(): this {
+        if (this.destroyed || !this._options.prompt || !this._promptInput) return this;
+
+        this.show();
+        this._pendingFocus = true;
+        // Now rather than on the next render: a user gesture may be needed to open the keyboard.
+        this._syncPrompt(false);
+
+        return this;
+    }
+
+    /** Removes focus from the command line, closing the on-screen keyboard and returning keys to the page. */
+    blurPrompt(): this {
+        this._pendingFocus = false;
+        this._promptInput?.blur();
+
+        return this;
     }
 
     // ------------------------------------------------------------------ scrolling
@@ -597,6 +838,11 @@ export class PixiConsole extends Container {
         this._content.onRender = null;
         this._drag = null;
         this._pressed.clear();
+        this._promptInput?.destroy();
+        this._promptInput = null;
+        this._pendingFocus = false;
+        this._registry.clear();
+        this._lastResult = undefined;
 
         // Text children share our styles: never let pixi destroy them per child.
         super.destroy({
@@ -613,6 +859,7 @@ export class PixiConsole extends Container {
         if (this._font) releaseFont(this._font.name);
         this._font = null;
         this._toolbar = null;
+        this._promptGlyph = null;
         this._renderer = null;
         this._rows = [];
         this._lines = [];
@@ -637,15 +884,21 @@ export class PixiConsole extends Container {
         return this._options.toolbar ? this._lineHeight + this._options.padding : 0;
     }
 
+    /** Height of the command line row at the bottom. */
+    private get _promptHeight(): number {
+        return this._options.prompt ? this._lineHeight + this._options.padding : 0;
+    }
+
     private get _contentRect(): Rectangle {
-        const { width, height, padding } = this._options;
-        const top = this._toolbarHeight + (this._options.toolbar ? padding / 2 : padding);
+        const { width, height, padding, toolbar, prompt } = this._options;
+        const top = this._toolbarHeight + (toolbar ? padding / 2 : padding);
+        const bottom = prompt ? this._promptHeight + padding / 2 : padding;
 
         return new Rectangle(
             padding,
             top,
             Math.max(1, width - padding * 2 - SCROLLBAR_WIDTH),
-            Math.max(1, height - top - padding),
+            Math.max(1, height - top - bottom),
         );
     }
 
@@ -705,13 +958,15 @@ export class PixiConsole extends Container {
     /** Runs every frame the console's render group is rendered, even while it is hidden. */
     private _onFrame(renderer?: Renderer): void {
         // pixi 8.7+ passes the renderer. RenderTexture passes don't say where the console is shown.
-        const toScreen = renderer?.renderingToScreen ?? true;
+        const toScreen = renderer ? drawsToCanvas(renderer) : true;
 
         if (renderer && toScreen) this._renderer = renderer;
 
         // Hidden: skip the work. Layout catches up once shown, with at most `maxEntries` entries.
         if (!this.visible || !this.renderable) {
             this._detachWheel();
+            // Takes the command line out of the document.
+            if (toScreen) this._syncPrompt(true);
 
             return;
         }
@@ -722,6 +977,8 @@ export class PixiConsole extends Container {
         }
 
         this._update();
+
+        if (toScreen) this._syncPrompt(true);
     }
 
     /** Keeps a non-passive wheel listener on the renderer's DOM element while the console is interactive. */
@@ -763,9 +1020,217 @@ export class PixiConsole extends Container {
         if (target === this) event.preventDefault();
     };
 
+    /**
+     * Places the command line over the prompt row, or takes it out of the document while the console
+     * isn't displayed. Runs on every screen render, hidden or not, and from {@link focusPrompt}.
+     */
+    private _syncPrompt(fromRender: boolean): void {
+        const input = this._promptInput;
+        const glyph = this._promptGlyph;
+
+        if (!input || !glyph || !this._options.prompt) return;
+
+        const opacity = displayedOpacity(this);
+        const renderer = this._renderer;
+        const canvas = renderer?.canvas;
+
+        if (opacity <= 0 || !renderer) {
+            if (input.attached) input.detach();
+
+            // pixi.js before 8.7 doesn't pass the renderer to onRender, and there is no autoResize one.
+            if (opacity > 0 && fromRender && !this._promptNotice) {
+                this._promptNotice = true;
+                this._printLine("result", "warn", NO_CANVAS_NOTICE);
+            }
+
+            return;
+        }
+
+        // Nothing to put the input next to (e.g. an OffscreenCanvas, or a canvas not in the page yet).
+        // Overlays can't be drawn over a fullscreen canvas either: fullscreen a wrapper element instead.
+        if (
+            !(canvas instanceof HTMLCanvasElement) ||
+            !canvas.isConnected ||
+            canvas.ownerDocument.fullscreenElement === canvas
+        ) {
+            if (input.attached) input.detach();
+
+            return;
+        }
+
+        // Outside a render, the console may not be on screen yet: focus it once it is.
+        if (!fromRender && rootOf(this) !== renderer.lastObjectRendered) return;
+
+        input.place(canvas, this._promptGeometry(renderer, glyph, opacity));
+
+        if (this._pendingFocus) {
+            this._pendingFocus = false;
+            input.focus();
+        }
+    }
+
+    /** Where the prompt row is on the renderer's screen. */
+    private _promptGeometry(renderer: Renderer, glyph: Label, opacity: number): PromptGeometry {
+        const { width, height, padding, fontSize } = this._options;
+        const rowHeight = this._promptHeight;
+        const top = height - rowHeight;
+        // `toGlobal` works out the transforms up the parents, so moves made this frame count, unlike
+        // `worldTransform`, which is only updated after onRender.
+        const origin = this.toGlobal(this._rowOrigin.set(0, top), this._rowOrigin);
+        const xAxis = this.toGlobal(this._rowAlongX.set(1, top), this._rowAlongX);
+        const yAxis = this.toGlobal(this._rowAlongY.set(0, top + 1), this._rowAlongY);
+
+        xAxis.set(xAxis.x - origin.x, xAxis.y - origin.y);
+        yAxis.set(yAxis.x - origin.x, yAxis.y - origin.y);
+
+        return {
+            screenWidth: renderer.screen.width,
+            screenHeight: renderer.screen.height,
+            origin,
+            xAxis,
+            yAxis,
+            width,
+            height: rowHeight,
+            // The input covers the whole row, so tapping the glyph focuses it too.
+            textInset: padding + glyph.width + Math.round(fontSize / 2),
+            endInset: padding,
+            fontSize,
+            opacity,
+        };
+    }
+
+    private get _placeholder(): string {
+        return this._options.evaluator ? EVALUATOR_PLACEHOLDER : PROMPT_PLACEHOLDER;
+    }
+
+    private _createPromptGlyph(): Label {
+        const glyph = this._createLabel();
+
+        glyph.label = "prompt";
+        glyph.text = ">";
+        glyph.tint = this._options.colors.info;
+        glyph.alpha = PROMPT_IDLE_ALPHA;
+        glyph.eventMode = "none";
+
+        // Last, so it is drawn over the toolbar and the log.
+        return this.addChild(glyph);
+    }
+
+    /** `null` without a document to put the input in, e.g. in a worker: {@link execute} still works. */
+    private _createPromptInput(): PromptInput | null {
+        if (typeof document === "undefined") return null;
+
+        const { fontFamily, colors } = this._options;
+
+        return new PromptInput(
+            {
+                submit: (line) => this._onSubmit(line),
+                historyPrevious: (current) => this._history.previous(current),
+                historyNext: () => this._history.next(),
+                complete: (value) => this._complete(value),
+                page: (direction) => this.scrollBy(direction * this._contentRect.height),
+                focusChange: (focused) => {
+                    if (this._promptGlyph) this._promptGlyph.alpha = focused ? 1 : PROMPT_IDLE_ALPHA;
+                },
+            },
+            {
+                fontFamily,
+                color: new Color(colors.log).toHex(),
+                caretColor: new Color(colors.info).toHex(),
+                placeholder: this._placeholder,
+            },
+        );
+    }
+
+    private _onSubmit(line: string): void {
+        // As run: `execute` trims the line too.
+        this._history.push(line.trim());
+        // Follow again, so the echo and the result are in view.
+        this.scrollToBottom();
+        void this.execute(line);
+    }
+
+    /**
+     * Completes the command name being typed: to the only match, or to what all matches start with.
+     * Otherwise the matches are printed. `null` lets Tab move the focus as usual.
+     */
+    private _complete(value: string): string | null {
+        const word = value.trim();
+
+        // Only the first word, the command name, is completed.
+        if (word === "" || /\s/.test(word)) return null;
+
+        const names = this._registry.complete(word);
+        const [first, ...others] = names;
+
+        if (first === undefined) return null;
+        if (others.length === 0) return `${first} `;
+
+        const common = commonPrefix(names);
+
+        if (common.length > word.length) return common;
+
+        this.scrollToBottom();
+        this._printLine("result", "log", names.join("  "), this._options.colors.debug);
+
+        return value;
+    }
+
+    /**
+     * Adds a command-line entry. Only to the canvas console: logging to the browser console would be
+     * captured by every PixiConsole, and devtools has a command line of its own.
+     */
+    private _printLine(kind: EntryKind, level: LogLevel, message: string, color?: ColorSource): void {
+        if (this.destroyed) return;
+
+        this._store.add(level, message, color, Date.now(), kind);
+        this._invalidate();
+    }
+
+    private _printResult(value: unknown, fromEvaluator: boolean): void {
+        // Results that arrive after destroy() are dropped, and must not be kept alive.
+        if (this.destroyed) return;
+
+        // `help` or `clear` don't wipe `$_`.
+        if (fromEvaluator || value !== undefined) this._lastResult = value;
+
+        const { format, colors } = this._options;
+
+        if (fromEvaluator) {
+            // Quoted like devtools does, so "1" and 1 can be told apart.
+            const shown = typeof value === "string" ? JSON.stringify(value) : value;
+
+            this._printLine(
+                "result",
+                "log",
+                `< ${formatArgs([shown], format)}`,
+                value === undefined ? colors.debug : undefined,
+            );
+        } else if (value !== undefined) {
+            // Strings as they are, anything else like console.log would print it.
+            this._printLine("result", "log", formatArgs([value], format));
+        }
+    }
+
+    private _printFailure(error: unknown, fromEvaluator: boolean, rejected: boolean): void {
+        const { format } = this._options;
+        let message: string;
+
+        if (isEvalBlocked(error)) {
+            // Without the stack, which would only point into pixi-console: say what to do instead.
+            message = formatArgs([`EvalError: ${messageOf(error)}\n${EVAL_BLOCKED_HINT}`], format);
+        } else if (fromEvaluator) {
+            message = formatArgs([rejected ? "Uncaught (in promise)" : "Uncaught", error], format);
+        } else {
+            message = formatArgs([error], format);
+        }
+
+        this._printLine("result", "error", message);
+    }
+
     /** Re-creates everything that depends on the console size. */
     private _applySize(): void {
-        const { width, height, backgroundColor, backgroundAlpha, padding, toolbar } = this._options;
+        const { width, height, backgroundColor, backgroundAlpha, padding, toolbar, prompt } = this._options;
         const content = this._contentRect;
 
         this.boundsArea = new Rectangle(0, 0, width, height);
@@ -781,6 +1246,19 @@ export class PixiConsole extends Container {
             this._separator
                 .rect(padding / 2, this._toolbarHeight, width - padding, 1)
                 .fill({ color: 0xffffff, alpha: 0.12 });
+        }
+
+        const promptTop = height - this._promptHeight;
+
+        if (prompt) {
+            this._separator.rect(padding / 2, promptTop, width - padding, 1).fill({ color: 0xffffff, alpha: 0.12 });
+        }
+
+        if (this._promptGlyph) {
+            const glyph = this._promptGlyph;
+
+            glyph.visible = prompt;
+            glyph.position.set(padding, promptTop + Math.round((this._promptHeight - glyph.height) / 2));
         }
 
         const poolSize = Math.ceil(content.height / this._lineHeight) + 1;
@@ -978,7 +1456,8 @@ export class PixiConsole extends Container {
     }
 
     private _layoutEntry(entry: StoredEntry): void {
-        if (!this._filter.has(entry.level)) return;
+        // Command-line entries are displayed whatever the filter.
+        if (!entry.kind && !this._filter.has(entry.level)) return;
 
         const color = entry.color ?? this._options.colors[entry.level];
 
@@ -1112,6 +1591,66 @@ function releaseFont(name: string): void {
     BitmapFont.uninstall(name);
 }
 
+/**
+ * Whether a render pass draws to the renderer's canvas, rather than to a texture. pixi only tells for
+ * a canvas in `document.body`: with one elsewhere (in a shadow root, out of the page or offscreen)
+ * `renderingToScreen` is always `false`, so every pass counts.
+ */
+function drawsToCanvas(renderer: Renderer): boolean {
+    if (renderer.renderingToScreen) return true;
+
+    const { canvas } = renderer;
+
+    return !(
+        typeof HTMLCanvasElement !== "undefined" &&
+        canvas instanceof HTMLCanvasElement &&
+        document.body.contains(canvas)
+    );
+}
+
+/** The longest start that every word shares. */
+function commonPrefix(words: readonly string[]): string {
+    let prefix = words[0] ?? "";
+
+    for (const word of words) {
+        while (!word.startsWith(prefix)) prefix = prefix.slice(0, -1);
+    }
+
+    return prefix;
+}
+
+/** An error's `message`, or `""` when it has none or reading it throws. */
+function messageOf(error: unknown): string {
+    try {
+        const { message } = error as { message?: unknown };
+
+        return typeof message === "string" ? message : "";
+    } catch {
+        return "";
+    }
+}
+
+/** Product of `alpha` from `container` up its parents, or `0` when it or a parent is hidden. */
+function displayedOpacity(container: Container): number {
+    let opacity = 1;
+
+    for (let node: Container | null = container; node; node = node.parent) {
+        if (!node.visible || !node.renderable) return 0;
+        opacity *= node.alpha;
+    }
+
+    return opacity;
+}
+
+/** The top of the scene graph `container` is in. */
+function rootOf(container: Container): Container {
+    let root = container;
+
+    while (root.parent) root = root.parent;
+
+    return root;
+}
+
 function formatTime(timestamp: number): string {
     const date = new Date(timestamp);
     const pad = (value: number, length = 2) => String(value).padStart(length, "0");
@@ -1119,7 +1658,11 @@ function formatTime(timestamp: number): string {
     return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}`;
 }
 
-function isEditable(target: EventTarget | null): boolean {
+/** Whether a key was typed into a text field, including one inside a shadow root. */
+function isEditable(event: Event): boolean {
+    // Events from a shadow root are retargeted to its host: the path still starts at the real target.
+    const target = event.composedPath()[0] ?? event.target;
+
     if (typeof HTMLElement === "undefined" || !(target instanceof HTMLElement)) return false;
 
     return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
