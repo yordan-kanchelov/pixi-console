@@ -45,11 +45,23 @@ export interface PixiConsoleOptions {
 
     /** Levels that are displayed. Hidden levels are still recorded and can be re-enabled later. @default all levels */
     filter: readonly LogLevel[];
-    /** Maximum number of entries kept in memory. Oldest entries are dropped first. @default 1000 */
+    /**
+     * Maximum number of entries kept in memory. Oldest entries are dropped first.
+     * Can be changed later via {@link PixiConsole.maxEntries}.
+     * @default 1000
+     */
     maxEntries: number;
-    /** Merge consecutive identical messages into one line with a `(×N)` counter. @default true */
+    /**
+     * Merge consecutive identical messages into one line with a `(×N)` counter.
+     * Can be changed later via {@link PixiConsole.collapseRepeats}.
+     * @default true
+     */
     collapseRepeats: boolean;
-    /** Prefix every entry with its time (`HH:MM:SS.mmm`). @default false */
+    /**
+     * Prefix every entry with its time (`HH:MM:SS.mmm`).
+     * Can be changed later via {@link PixiConsole.timestamps}.
+     * @default false
+     */
     timestamps: boolean;
     /** Options for turning logged values into text. @default {@link DEFAULT_FORMAT_OPTIONS} */
     format: Partial<FormatOptions>;
@@ -78,7 +90,11 @@ export interface PixiConsoleOptions {
     /** @default 0.85 */
     backgroundAlpha: number;
 
-    /** Show the toolbar with per-level filter toggles, clear and close buttons. @default true */
+    /**
+     * Show the toolbar with per-level filter toggles, clear and close buttons.
+     * Can be changed later via {@link PixiConsole.toolbar}.
+     * @default true
+     */
     toolbar: boolean;
     /** Enable wheel and drag scrolling and toolbar buttons. Set to `false` to let pointer events pass through. @default true */
     interactive: boolean;
