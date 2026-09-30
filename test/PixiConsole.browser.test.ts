@@ -1809,6 +1809,35 @@ describe("command line", () => {
         expect(visibleLines(pixiConsole).at(-1)).toBe("  help [command]  Lists commands, or describes one");
     });
 
+    it("scrolls the log, not the page, with the wheel over the command line", () => {
+        const pixiConsole = create({ prompt: true, height: 300 });
+        const lineHeight = Math.round(DEFAULT_OPTIONS.fontSize * 1.4);
+        const wheel = (init: WheelEventInit) => {
+            const event = new WheelEvent("wheel", { bubbles: true, cancelable: true, ...init });
+
+            promptOf(pixiConsole).dispatchEvent(event);
+
+            return event;
+        };
+
+        for (let i = 0; i < 100; i++) pixiConsole.log(`line ${i}`);
+        render();
+
+        const bottom = pixiConsole.scrollY;
+
+        expect(wheel({ deltaY: -60 }).defaultPrevented).toBe(true);
+        expect(pixiConsole.scrollY).toBe(bottom - 60);
+
+        expect(wheel({ deltaY: -2, deltaMode: 1 }).defaultPrevented).toBe(true);
+        expect(pixiConsole.scrollY).toBe(bottom - 60 - 2 * lineHeight);
+
+        // Zooming stays with the browser, and a console that lets pointer input through lets the wheel through too.
+        expect(wheel({ deltaY: -60, ctrlKey: true }).defaultPrevented).toBe(false);
+        pixiConsole.eventMode = "none";
+        expect(wheel({ deltaY: -60 }).defaultPrevented).toBe(false);
+        expect(pixiConsole.scrollY).toBe(bottom - 60 - 2 * lineHeight);
+    });
+
     it("runs lines from code", async () => {
         const evaluator = vi.fn<ConsoleEvaluator>((line) => {
             switch (line) {

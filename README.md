@@ -201,7 +201,7 @@ The `DEV` check keeps the `eval`, and your bundler's warning about it, out of pr
   addEventListener("pagehide", () => localStorage.setItem("console-history", JSON.stringify(devConsole.history)));
   ```
 
-- The wheel scrolls the log, not the page, except over the command line. Zooming (ctrl+wheel or a trackpad pinch) and sideways scrolling are left to the browser.
+- The wheel scrolls the log, not the page, also over the command line. Zooming (ctrl+wheel or a trackpad pinch) and sideways scrolling are left to the browser.
 - If you take an ancestor of a shown console off the stage, or stop rendering, the input stays until you call `hide()` or `destroy()`.
 
 </details>
