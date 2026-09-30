@@ -24,6 +24,7 @@ import {
     type LogLevel,
     type PixiConsoleInit,
 } from "../src";
+import { pixiAtLeast } from "../src/PixiConsole";
 
 let app: Application;
 const consoles: PixiConsole[] = [];
@@ -134,8 +135,15 @@ function tap(x: number, y: number, init: PointerEventInit = {}): void {
 }
 
 /** Dispatches a native wheel event on the canvas and returns it, e.g. to check `defaultPrevented`. */
-function wheel(x: number, y: number, deltaY: number, deltaMode = 0): WheelEvent {
-    const event = new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY, deltaMode, ...clientPoint(x, y) });
+function wheel(x: number, y: number, deltaY: number, deltaMode = 0, init: WheelEventInit = {}): WheelEvent {
+    const event = new WheelEvent("wheel", {
+        bubbles: true,
+        cancelable: true,
+        deltaY,
+        deltaMode,
+        ...clientPoint(x, y),
+        ...init,
+    });
 
     app.canvas.dispatchEvent(event);
 
@@ -536,6 +544,30 @@ describe("rendering", () => {
         expect(visibleLines(pixiConsole).at(-1)).toBe("line 29");
     });
 
+    it("skips layout while a parent is hidden", () => {
+        const parent = app.stage.addChild(new Container());
+        const pixiConsole = create({ height: 150 });
+
+        cleanups.push(() => parent.destroy());
+        parent.addChild(pixiConsole);
+        parent.visible = false;
+        render();
+
+        const getLayout = vi.spyOn(BitmapFontManager, "getLayout");
+
+        for (let i = 0; i < 30; i++) {
+            pixiConsole.log(`line ${i}`);
+            render();
+        }
+
+        expect(getLayout).not.toHaveBeenCalled();
+
+        parent.visible = true;
+        render();
+
+        expect(visibleLines(pixiConsole).at(-1)).toBe("line 29");
+    });
+
     it("is its own render group, so logging doesn't rebuild the stage", () => {
         const pixiConsole = create();
         const renderGroups = app.renderer.renderGroup as unknown as {
@@ -626,12 +658,31 @@ describe("rendering", () => {
 
 describe("text resolution and fonts", () => {
     it("installs its bitmap font without kerning", () => {
-        create();
+        // A proportional font has kerning pairs, which pixi finds when it looks for them.
+        const pixiConsole = create({ fontFamily: "serif" });
+
+        pixiConsole.log("AVATAR To Ty Wa");
         render();
 
-        const font = Cache.get<{ _skipKerning?: boolean }>(`${fontName(app.renderer.resolution)}-bitmap`);
+        const font = Cache.get<{ chars: Record<string, { kerning: Record<string, number> }> }>(
+            `pixi-console:serif:${DEFAULT_OPTIONS.fontSize}:${app.renderer.resolution}-bitmap`,
+        );
+        const kerned = Object.entries(font.chars).filter(([, char]) => Object.keys(char.kerning).length > 0);
 
-        expect(font._skipKerning).toBe(true);
+        expect(Object.keys(font.chars)).toContain("V");
+        expect(kerned).toEqual([]);
+    });
+
+    it("tells pixi.js versions apart, to work around bugs of older ones", () => {
+        expect(pixiAtLeast(8, 0, 0)).toBe(true);
+        expect(pixiAtLeast(8, 1, 6, "8.1.5")).toBe(false);
+        expect(pixiAtLeast(8, 1, 6, "8.1.6")).toBe(true);
+        expect(pixiAtLeast(8, 1, 6, "8.1.10")).toBe(true);
+        expect(pixiAtLeast(8, 1, 6, "8.0.9")).toBe(false);
+        expect(pixiAtLeast(8, 17, 0, "8.9.0")).toBe(false);
+        expect(pixiAtLeast(8, 17, 0, "8.16.3")).toBe(false);
+        expect(pixiAtLeast(8, 17, 0, "8.17.0-rc.1")).toBe(true);
+        expect(pixiAtLeast(8, 17, 0, "9.0.0")).toBe(true);
     });
 
     it("follows the renderer resolution rather than devicePixelRatio", () => {
@@ -751,9 +802,27 @@ describe("toolbar", () => {
         pixiConsole.error("the one error");
         render();
 
-        expect(button(pixiConsole, "debug").visible).toBe(false);
-        expect(button(pixiConsole, "error").visible).toBe(true);
+        expect(LOG_LEVELS.filter((level) => button(pixiConsole, level).visible)).toEqual(["info", "warn", "error"]);
+        expect(button(pixiConsole, "clear").visible).toBe(false);
         expect(button(pixiConsole, "error").alpha).toBeLessThan(1);
+        expectToolbarFits(pixiConsole);
+    });
+
+    it("hides an empty chip before a more severe one, and before the clear button", () => {
+        const pixiConsole = create({ width: 320 });
+
+        for (let i = 0; i < 100; i++) {
+            pixiConsole.log(`log ${i}`).info(`info ${i}`).debug(`debug ${i}`).error(`error ${i}`);
+        }
+        render();
+
+        expect(LOG_LEVELS.filter((level) => button(pixiConsole, level).visible)).toEqual([
+            "log",
+            "info",
+            "debug",
+            "error",
+        ]);
+        expect(button(pixiConsole, "clear").visible).toBe(true);
         expectToolbarFits(pixiConsole);
     });
 
@@ -866,6 +935,45 @@ describe("scrolling", () => {
         pixiConsole.filter = ["error"];
         render();
         expect(visibleLines(pixiConsole)).toContain("error 180");
+
+        // Nothing from there on is displayed: the view goes to the bottom.
+        pixiConsole.filter = [...LOG_LEVELS];
+        pixiConsole.scrollTo(285 * 20);
+        pixiConsole.filter = ["error"];
+        render();
+        expect(visibleLines(pixiConsole).at(-1)).toBe("error 270");
+    });
+
+    it("follows new entries once a filter change leaves the view at the bottom", () => {
+        const pixiConsole = create({ height: 200 });
+
+        for (let i = 0; i < 300; i++) {
+            if (i % 30 === 0) pixiConsole.error(`error ${i}`);
+            else pixiConsole.log(`line ${i}`);
+        }
+
+        pixiConsole.scrollTo(250 * 20);
+        pixiConsole.filter = ["error"];
+        render();
+        expect(pixiConsole.isFollowing).toBe(true);
+
+        for (let i = 0; i < 30; i++) pixiConsole.error(`new error ${i}`);
+        render();
+        expect(visibleLines(pixiConsole).at(-1)).toBe("new error 29");
+
+        // New entries were followed: showing every level again stays at the bottom.
+        pixiConsole.filter = [...LOG_LEVELS];
+        render();
+        expect(pixiConsole.isFollowing).toBe(true);
+        expect(visibleLines(pixiConsole).at(-1)).toBe("new error 29");
+
+        // Also when there is nothing left to scroll.
+        pixiConsole.scrollToTop();
+        pixiConsole.filter = ["warn"];
+        render();
+        for (let i = 0; i < 10; i++) pixiConsole.warn(`warning ${i}`);
+        render();
+        expect(visibleLines(pixiConsole).at(-1)).toBe("warning 9");
     });
 
     it("keeps the reader's entry at the top when text is wrapped again", () => {
@@ -978,7 +1086,18 @@ describe("scrolling", () => {
 });
 
 describe("pointer input", () => {
-    const STAGE_EVENTS = ["pointerdown", "mousedown", "pointerup", "mouseup", "click", "pointertap", "wheel"];
+    const STAGE_EVENTS = [
+        "pointerdown",
+        "mousedown",
+        "rightdown",
+        "pointerup",
+        "mouseup",
+        "rightup",
+        "click",
+        "rightclick",
+        "pointertap",
+        "wheel",
+    ];
 
     it("scrolls with the wheel and keeps the page from scrolling", () => {
         const pixiConsole = create({ height: 300 });
@@ -1002,6 +1121,25 @@ describe("pointer input", () => {
 
         pixiConsole.hide();
         expect(wheel(400, 200, -1).defaultPrevented).toBe(false);
+    });
+
+    it("leaves zooming and sideways wheels to the browser", () => {
+        const pixiConsole = create({ height: 300 });
+
+        for (let i = 0; i < 100; i++) pixiConsole.log(`line ${i}`);
+        render();
+
+        const bottom = pixiConsole.scrollY;
+        const seen = listenOnStage(["wheel"]);
+
+        // ctrl+wheel zooms the page, and is what a trackpad pinch sends.
+        expect(wheel(400, 200, -10, 0, { ctrlKey: true }).defaultPrevented).toBe(false);
+        expect(wheel(400, 200, 0, 0, { deltaX: 40 }).defaultPrevented).toBe(false);
+        expect(pixiConsole.scrollY).toBe(bottom);
+        expect(seen).toEqual({ wheel: 0 });
+
+        expect(wheel(400, 200, -10).defaultPrevented).toBe(true);
+        expect(pixiConsole.scrollY).toBe(bottom - 10);
     });
 
     it("lets the page scroll over objects on top of the console, or when it isn't interactive", () => {
@@ -1078,6 +1216,11 @@ describe("pointer input", () => {
         pointer("pointerup", 400, 200);
 
         expect(seen).toMatchObject({ pointerdown: 1, mousedown: 1, pointerup: 1, mouseup: 1 });
+
+        pointer("pointerdown", 400, 450, { button: 2, buttons: 2 });
+        pointer("pointerup", 400, 200, { button: 2 });
+
+        expect(seen).toMatchObject({ pointerdown: 2, rightdown: 1, pointerup: 2, rightup: 1 });
     });
 
     it("keeps touches on the console from reaching the stage", () => {
@@ -1324,8 +1467,8 @@ describe("lifecycle", () => {
         expect(document.querySelector("[data-pixi-console]")).toBeNull();
     });
 
-    it("removes its wheel and pointercancel listeners when destroyed", () => {
-        const pixiConsole = create({ height: 300 });
+    it("removes its wheel and pointer listeners when destroyed", () => {
+        const pixiConsole = create({ height: 300, prompt: true });
         const removeFromCanvas = vi.spyOn(app.canvas, "removeEventListener");
         const removeFromWindow = vi.spyOn(window, "removeEventListener");
 
@@ -1334,6 +1477,7 @@ describe("lifecycle", () => {
 
         expect(removeFromCanvas).toHaveBeenCalledWith("wheel", expect.any(Function));
         expect(removeFromWindow).toHaveBeenCalledWith("pointercancel", expect.any(Function), true);
+        expect(removeFromWindow).toHaveBeenCalledWith("pointerdown", expect.any(Function), true);
         expect(wheel(400, 200, 10).defaultPrevented).toBe(false);
     });
 });
@@ -1596,6 +1740,13 @@ describe("command line", () => {
 
         expect(input.value).toBe("help ");
 
+        // The name is complete: Tab moves the focus as usual.
+        await userEvent.keyboard("{Tab}");
+
+        expect(input.value).toBe("help ");
+        expect(document.activeElement).not.toBe(input);
+
+        await userEvent.click(input);
         pixiConsole.addCommand("hello", () => "hi");
         await userEvent.fill(input, "HE");
         await userEvent.keyboard("{Tab}");
@@ -1611,7 +1762,7 @@ describe("command line", () => {
         await userEvent.fill(input, "");
         await userEvent.keyboard("{Tab}");
 
-        expect(prevented).toEqual([true, true, true, false]);
+        expect(prevented).toEqual([true, false, true, true, false]);
         expect(document.activeElement).not.toBe(input);
     });
 
@@ -1694,6 +1845,20 @@ describe("command line", () => {
         };
         await pixiConsole.execute("blocked");
         expect(messages(pixiConsole).at(-1)).toMatch(/^EvalError: \nJavaScript evaluation is blocked/);
+
+        // Nor its name.
+        const nameless = Object.defineProperty(new Error("nameless"), "name", {
+            get: () => {
+                throw new Error("no name");
+            },
+        });
+
+        pixiConsole.evaluator = () => {
+            throw nameless;
+        };
+        await expect(pixiConsole.execute("nameless")).resolves.toBeUndefined();
+        expect(pixiConsole.entries.at(-1)).toMatchObject({ kind: "result", level: "error" });
+        expect(messages(pixiConsole).at(-1)).toMatch(/^Uncaught /);
         pixiConsole.evaluator = evaluator;
 
         // Blank lines are ignored.
@@ -1744,6 +1909,20 @@ describe("command line", () => {
 
         await expect(pixiConsole.execute("later")).resolves.toBeUndefined();
         expect(messages(pixiConsole).at(-1)).toMatch(/^Error: rejected\n/);
+
+        // Printed, never thrown or rejected, whatever the failure is.
+        const { proxy, revoke } = Proxy.revocable(new Error("revoked"), {});
+
+        revoke();
+        pixiConsole.addCommand("revoked", () => {
+            throw proxy;
+        });
+        pixiConsole.addCommand("revoked-later", () => Promise.reject(proxy));
+
+        await expect(pixiConsole.execute("revoked")).resolves.toBeUndefined();
+        expect(pixiConsole.entries.at(-1)).toMatchObject({ kind: "result", level: "error" });
+        await expect(pixiConsole.execute("revoked-later")).resolves.toBeUndefined();
+        expect(pixiConsole.entries.at(-1)).toMatchObject({ kind: "result", level: "error" });
 
         await pixiConsole.execute("nope --flag");
         expect(pixiConsole.entries.at(-1)).toMatchObject({
@@ -2135,6 +2314,25 @@ describe("command line", () => {
         expect(field.value).toBe("`");
     });
 
+    it("leaves what is typed into a closed shadow root to its text field", async () => {
+        const pixiConsole = create({ prompt: true, visible: false, toggleKey: "Backquote" });
+        const host = document.body.appendChild(document.createElement("div"));
+        const field = host.attachShadow({ mode: "closed" }).appendChild(document.createElement("input"));
+
+        field.type = "password";
+        cleanups.push(() => host.remove());
+        render();
+        field.focus();
+        await userEvent.keyboard("hunter`secret{Enter}");
+
+        // The field can't be seen from outside, so the key still toggles the console, but the
+        // command line takes neither the focus nor the rest of what is typed.
+        expect(field.value).toBe("hunter`secret");
+        expect(document.activeElement).not.toBe(promptOf(pixiConsole));
+        expect(pixiConsole.history).toEqual([]);
+        expect(pixiConsole.entries).toHaveLength(0);
+    });
+
     it("focuses from code once it can be placed", () => {
         const parent = app.stage.addChild(new Container());
         // The renderer is known, but the console isn't on the stage yet.
@@ -2183,6 +2381,45 @@ describe("command line", () => {
 
         expect(plain.focusPrompt().visible).toBe(false);
         expect(plain.promptElement).toBeNull();
+    });
+
+    it("keeps the focus when a pixi tap handler focuses it on a touch screen", async () => {
+        const pixiConsole = create({ prompt: true, height: 300 });
+        const input = promptOf(pixiConsole);
+        const target = app.stage.addChild(new Graphics().rect(0, 400, 100, 100).fill(0xff0000));
+        const session = cdp();
+        const { clientX: x, clientY: y } = clientPoint(50, 450);
+        const mousedown = () =>
+            app.canvas.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+
+        target.eventMode = "static";
+        target.on("pointertap", () => pixiConsole.focusPrompt());
+        cleanups.push(() => target.destroy());
+        render();
+        blurActive();
+
+        await session.send("Emulation.setTouchEmulationEnabled", { enabled: true });
+
+        try {
+            const clicked = new Promise((resolve) => window.addEventListener("click", resolve, { once: true }));
+
+            // The browser follows the tap with a mousedown on the canvas, which would take the focus.
+            await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+            await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+            await clicked;
+        } finally {
+            await session.send("Emulation.setTouchEmulationEnabled", { enabled: false });
+        }
+
+        expect(document.activeElement).toBe(input);
+        // Only that mousedown is cancelled.
+        expect(mousedown()).toBe(true);
+
+        // Clicked with a mouse, nothing is cancelled.
+        blurActive();
+        tap(50, 450);
+        expect(document.activeElement).toBe(input);
+        expect(mousedown()).toBe(true);
     });
 
     it("tells when it can't find the canvas", async () => {

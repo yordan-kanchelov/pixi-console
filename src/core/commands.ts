@@ -67,12 +67,18 @@ export function isThenable(value: unknown): value is PromiseLike<unknown> {
 }
 
 /**
- * Whether an error means `eval` was refused, by a Content-Security-Policy without `'unsafe-eval'`
- * or by Trusted Types: engines only throw `EvalError` for those. Checks the name rather than
- * `instanceof`, which fails for errors from another realm (e.g. an iframe).
+ * The message of an error meaning `eval` was refused, by a Content-Security-Policy without
+ * `'unsafe-eval'` or by Trusted Types: engines only throw `EvalError` for those. `""` when the
+ * message isn't a readable string, `undefined` for anything else. Checks the name rather than
+ * `instanceof`, which fails for errors from another realm (e.g. an iframe). Never throws, whatever
+ * getters or proxies the value has.
  */
-export function isEvalBlocked(error: unknown): boolean {
-    return typeof error === "object" && error !== null && (error as { name?: unknown }).name === "EvalError";
+export function evalBlockedMessage(error: unknown): string | undefined {
+    if (readProperty(error, "name") !== "EvalError") return undefined;
+
+    const message = readProperty(error, "message");
+
+    return typeof message === "string" ? message : "";
 }
 
 /**
@@ -112,14 +118,15 @@ export class CommandRegistry {
 
     /** A copy of the registered commands, sorted by name. */
     entries(): Record<string, ConsoleCommand> {
-        return Object.fromEntries([...this._commands].sort(([a], [b]) => compare(a, b)));
+        // Code-unit order, stable across locales; names are unique.
+        return Object.fromEntries([...this._commands].sort(([a], [b]) => (a < b ? -1 : 1)));
     }
 
     /** Sorted names of the commands starting with `prefix`, case-insensitively. */
     complete(prefix: string): string[] {
         const start = prefix.toLowerCase();
 
-        return [...this._commands.keys()].filter((name) => name.startsWith(start)).sort(compare);
+        return [...this._commands.keys()].filter((name) => name.startsWith(start)).sort();
     }
 }
 
@@ -135,7 +142,7 @@ export function builtinCommands(): Record<"help" | "clear", ConsoleCommand> {
                 if (name !== undefined) {
                     const key = name.toLowerCase();
                     // Own properties only: `help constructor` must not find Object.prototype.constructor.
-                    const command = Object.prototype.hasOwnProperty.call(commands, key) ? commands[key] : undefined;
+                    const command = Object.hasOwn(commands, key) ? commands[key] : undefined;
 
                     if (!command) return `Unknown command "${name}".`;
 
@@ -144,12 +151,11 @@ export function builtinCommands(): Record<"help" | "clear", ConsoleCommand> {
                     return command.description ? `${head}\n  ${command.description}` : head;
                 }
 
-                const rows = Object.entries(commands)
-                    .sort(([a], [b]) => compare(a, b))
-                    .map(([key, command]) => ({
-                        head: `  ${signature(key, command)}`,
-                        description: command.description,
-                    }));
+                // Already sorted by name.
+                const rows = Object.entries(commands).map(([key, command]) => ({
+                    head: `  ${signature(key, command)}`,
+                    description: command.description,
+                }));
                 const width = Math.max(0, ...rows.map(({ head }) => head.length));
                 const lines = rows.map(({ head, description }) =>
                     description ? `${head.padEnd(width)}  ${description}` : head,
@@ -174,7 +180,13 @@ function signature(name: string, command: Readonly<ConsoleCommand>): string {
     return command.usage ? `${name} ${command.usage}` : name;
 }
 
-/** Code-unit order: stable across locales, unlike `localeCompare`. */
-function compare(a: string, b: string): number {
-    return a < b ? -1 : a > b ? 1 : 0;
+/** `value[key]`, or `undefined` when `value` isn't an object or reading the property throws. */
+function readProperty(value: unknown, key: string): unknown {
+    if (typeof value !== "object" || value === null) return undefined;
+
+    try {
+        return (value as Record<string, unknown>)[key];
+    } catch {
+        return undefined;
+    }
 }

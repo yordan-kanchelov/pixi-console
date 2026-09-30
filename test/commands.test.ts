@@ -4,7 +4,7 @@ import {
     COMMAND_NAME,
     CommandRegistry,
     builtinCommands,
-    isEvalBlocked,
+    evalBlockedMessage,
     isThenable,
     parseCommandLine,
     type CommandContext,
@@ -180,17 +180,47 @@ describe("isThenable", () => {
     });
 });
 
-describe("isEvalBlocked", () => {
+describe("evalBlockedMessage", () => {
     it("recognises EvalError, also from another realm", () => {
-        expect(isEvalBlocked(new EvalError("Refused to evaluate a string as JavaScript"))).toBe(true);
-        expect(isEvalBlocked({ name: "EvalError", message: "blocked" })).toBe(true);
+        expect(evalBlockedMessage(new EvalError("Refused to evaluate a string as JavaScript"))).toBe(
+            "Refused to evaluate a string as JavaScript",
+        );
+        expect(evalBlockedMessage({ name: "EvalError", message: "blocked" })).toBe("blocked");
+    });
+
+    it("gives an empty message when it isn't a readable string", () => {
+        const unreadable = {
+            name: "EvalError",
+            get message(): string {
+                throw new Error("no message");
+            },
+        };
+
+        expect(evalBlockedMessage({ name: "EvalError", message: 42 })).toBe("");
+        expect(evalBlockedMessage({ name: "EvalError" })).toBe("");
+        expect(evalBlockedMessage(unreadable)).toBe("");
     });
 
     it("ignores other errors and values", () => {
-        expect(isEvalBlocked(new TypeError("x"))).toBe(false);
-        expect(isEvalBlocked(new SyntaxError("x"))).toBe(false);
-        expect(isEvalBlocked("EvalError")).toBe(false);
-        expect(isEvalBlocked(null)).toBe(false);
+        expect(evalBlockedMessage(new TypeError("x"))).toBeUndefined();
+        expect(evalBlockedMessage(new SyntaxError("x"))).toBeUndefined();
+        expect(evalBlockedMessage("EvalError")).toBeUndefined();
+        expect(evalBlockedMessage(EvalError)).toBeUndefined();
+        expect(evalBlockedMessage(null)).toBeUndefined();
+    });
+
+    it("never throws, whatever the value", () => {
+        const { proxy, revoke } = Proxy.revocable({}, {});
+        const unnamed = {
+            get name(): string {
+                throw new Error("no name");
+            },
+        };
+
+        revoke();
+
+        expect(evalBlockedMessage(proxy)).toBeUndefined();
+        expect(evalBlockedMessage(unnamed)).toBeUndefined();
     });
 });
 

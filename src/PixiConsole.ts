@@ -11,6 +11,7 @@ import {
     Rectangle,
     Text,
     TextStyle,
+    VERSION,
     type ColorSource,
     type DestroyOptions,
     type FederatedEvent,
@@ -22,7 +23,7 @@ import {
 import {
     builtinCommands,
     CommandRegistry,
-    isEvalBlocked,
+    evalBlockedMessage,
     isThenable,
     parseCommandLine,
     type CommandContext,
@@ -96,11 +97,21 @@ const EVAL_BLOCKED_HINT =
     "JavaScript evaluation is blocked by this page's Content-Security-Policy ('unsafe-eval' is not allowed). " +
     "Commands still work: add them with addCommand().";
 const NO_CANVAS_NOTICE = "The command line needs pixi.js 8.7+ or the autoResize option to find the canvas.";
+/**
+ * How long after a touch or pen press its compatibility mouse events may still come, in ms. They can
+ * come about 300 ms late on pages without a mobile viewport meta tag.
+ */
+const TAP_TIMEOUT = 1000;
 
 /**
  * Pointer events that stop at the console, so that pressing, tapping or wheeling over it doesn't also
  * reach objects underneath, such as a stage-wide "tap to shoot" handler. The console only gets the
  * click family when both the press and the release were on it. Releases are handled separately.
+ *
+ * Known limitation: a drag that starts on the console and ends outside it still delivers `pointerup`
+ * and the click/tap to what is underneath. pixi dispatches the release on its target and the click
+ * family on the common ancestor of press and release, usually the stage, and the console is on
+ * neither path, so it can't stop them.
  */
 const CONSUMED_EVENTS = [
     "wheel",
@@ -195,6 +206,8 @@ export class PixiConsole extends Container {
     private _pendingFocus = false;
     /** Whether the notice that the canvas can't be found was printed. */
     private _promptNotice = false;
+    /** The last press on the page while {@link prompt} is on, see {@link _guardFocus}. */
+    private _lastPress: { pointerType: string; timeStamp: number } | null = null;
     /** The prompt row's top-left corner, and the ends of one local unit along x and y from it, in global coordinates. */
     private readonly _rowOrigin = new Point();
     private readonly _rowAlongX = new Point();
@@ -205,6 +218,8 @@ export class PixiConsole extends Container {
     private _removeKeyListener?: () => void;
     private _removeAutoResize?: () => void;
     private _removeCancelListener?: () => void;
+    private _removePressListener?: () => void;
+    private _removeFocusGuard?: () => void;
 
     constructor(options: PixiConsoleInit = {}) {
         // A render group of its own: text changing with every log then only rebuilds the console's
@@ -443,7 +458,13 @@ export class PixiConsole extends Container {
 
             this.toggle();
 
-            if (this.visible && this._options.prompt) {
+            // Only when nothing else has the focus: a text field in a closed shadow root looks like
+            // its host from here, and must keep what is typed into it.
+            const { target } = event;
+            const idle =
+                target === document.body || target === document.documentElement || target === this._renderer?.canvas;
+
+            if (this.visible && this._options.prompt && idle) {
                 // Otherwise the key would be typed into the command line it focuses.
                 event.preventDefault();
                 this.focusPrompt();
@@ -572,9 +593,13 @@ export class PixiConsole extends Container {
         if (value) {
             this._promptGlyph ??= this._createPromptGlyph();
             this._promptInput ??= this._createPromptInput();
+            this._watchPresses();
         } else {
             this._pendingFocus = false;
             this._promptInput?.detach();
+            this._removePressListener?.();
+            this._removePressListener = undefined;
+            this._removeFocusGuard?.();
         }
 
         // The log makes room for the prompt row. Its width doesn't change, so nothing is wrapped again.
@@ -727,6 +752,7 @@ export class PixiConsole extends Container {
         this._pendingFocus = true;
         // Now rather than on the next render: a user gesture may be needed to open the keyboard.
         this._syncPrompt(false);
+        this._guardFocus();
 
         return this;
     }
@@ -832,8 +858,10 @@ export class PixiConsole extends Container {
         this._removeKeyListener?.();
         this._removeAutoResize?.();
         this._removeCancelListener?.();
+        this._removePressListener?.();
+        this._removeFocusGuard?.();
         this._unhookConsole = this._unhookErrors = this._removeKeyListener = undefined;
-        this._removeAutoResize = this._removeCancelListener = undefined;
+        this._removeAutoResize = this._removeCancelListener = this._removePressListener = undefined;
         this._detachWheel();
         this._content.onRender = null;
         this._drag = null;
@@ -962,8 +990,9 @@ export class PixiConsole extends Container {
 
         if (renderer && toScreen) this._renderer = renderer;
 
-        // Hidden: skip the work. Layout catches up once shown, with at most `maxEntries` entries.
-        if (!this.visible || !this.renderable) {
+        // Hidden, also by a parent: skip the work. Layout catches up once shown, with at most
+        // `maxEntries` entries.
+        if (!isShown(this)) {
             this._detachWheel();
             // Takes the command line out of the document.
             if (toScreen) this._syncPrompt(true);
@@ -1007,8 +1036,9 @@ export class PixiConsole extends Container {
         const renderer = this._renderer;
         const events = renderer?.events;
 
-        // Without pixi wheel events the console doesn't scroll, so the page may.
-        if (!renderer || !events?.features.wheel) return;
+        // Without pixi wheel events the console doesn't scroll, so the page may. Nor does it zoom
+        // (ctrl+wheel, or a trackpad pinch) or scroll sideways: leave those to the browser.
+        if (!renderer || !events?.features.wheel || event.ctrlKey || event.deltaY === 0) return;
 
         // Like pixi does for its own wheel event: hit test what was last rendered to the screen.
         events.rootBoundary.rootTarget = renderer.lastObjectRendered;
@@ -1099,6 +1129,51 @@ export class PixiConsole extends Container {
         };
     }
 
+    /** Remembers the last press on the page, for {@link _guardFocus}. */
+    private _watchPresses(): void {
+        if (this._removePressListener || typeof window === "undefined") return;
+
+        const onPress = ({ pointerType, timeStamp }: PointerEvent) => {
+            this._lastPress = { pointerType, timeStamp };
+        };
+
+        window.addEventListener("pointerdown", onPress, { capture: true, passive: true });
+        this._removePressListener = () => {
+            window.removeEventListener("pointerdown", onPress, true);
+            this._lastPress = null;
+        };
+    }
+
+    /**
+     * After a touch or pen tap, the browser sends a compatibility `mousedown` to what was tapped, and
+     * pixi doesn't cancel the press, so that `mousedown` would move the focus off the command line
+     * that a pixi tap handler just focused. When {@link focusPrompt} runs during such a tap, this
+     * cancels mousedowns until the tap's `click`, or for {@link TAP_TIMEOUT} ms.
+     */
+    private _guardFocus(): void {
+        const press = this._lastPress;
+
+        if (!press || press.pointerType === "mouse" || performance.now() - press.timeStamp > TAP_TIMEOUT) return;
+
+        this._lastPress = null;
+        this._removeFocusGuard?.();
+
+        const prevent = (event: MouseEvent) => event.preventDefault();
+        const remove = () => {
+            clearTimeout(timeout);
+            window.removeEventListener("mousedown", prevent, true);
+            window.removeEventListener("click", remove);
+            this._removeFocusGuard = undefined;
+        };
+        const timeout = setTimeout(remove, TAP_TIMEOUT);
+
+        window.addEventListener("mousedown", prevent, true);
+        // Not capturing, so that a click being dispatched right now (e.g. to a DOM button whose
+        // handler called focusPrompt(), after its mousedown) ends the guard too.
+        window.addEventListener("click", remove);
+        this._removeFocusGuard = remove;
+    }
+
     private get _placeholder(): string {
         return this._options.evaluator ? EVALUATOR_PLACEHOLDER : PROMPT_PLACEHOLDER;
     }
@@ -1155,9 +1230,10 @@ export class PixiConsole extends Container {
      * Otherwise the matches are printed. `null` lets Tab move the focus as usual.
      */
     private _complete(value: string): string | null {
-        const word = value.trim();
+        const word = value.trimStart();
 
-        // Only the first word, the command name, is completed.
+        // Only the first word, the command name, is completed, and only while it is being typed:
+        // after a space (e.g. once completed) Tab moves the focus again.
         if (word === "" || /\s/.test(word)) return null;
 
         const names = this._registry.complete(word);
@@ -1214,11 +1290,12 @@ export class PixiConsole extends Container {
 
     private _printFailure(error: unknown, fromEvaluator: boolean, rejected: boolean): void {
         const { format } = this._options;
+        const blocked = evalBlockedMessage(error);
         let message: string;
 
-        if (isEvalBlocked(error)) {
+        if (blocked !== undefined) {
             // Without the stack, which would only point into pixi-console: say what to do instead.
-            message = formatArgs([`EvalError: ${messageOf(error)}\n${EVAL_BLOCKED_HINT}`], format);
+            message = formatArgs([`EvalError: ${blocked}\n${EVAL_BLOCKED_HINT}`], format);
         } else if (fromEvaluator) {
             message = formatArgs([rejected ? "Uncaught (in promise)" : "Uncaught", error], format);
         } else {
@@ -1278,6 +1355,9 @@ export class PixiConsole extends Container {
         for (const type of CONSUMED_EVENTS) this.on(type, consume);
 
         this.on("wheel", (event: FederatedWheelEvent) => {
+            // The browser zooms the page instead.
+            if (event.ctrlKey) return;
+
             const unit =
                 event.deltaMode === 1 ? this._lineHeight : event.deltaMode === 2 ? this._contentRect.height : 1;
             this.scrollBy(event.deltaY * unit);
@@ -1396,6 +1476,7 @@ export class PixiConsole extends Container {
             }
         }
 
+        const lineCount = this._lines.length;
         let start = entries.length;
 
         while (start > 0 && (entries[start - 1]?.id ?? -1) > this._laidOutUpTo) start--;
@@ -1404,10 +1485,16 @@ export class PixiConsole extends Container {
 
         this._laidOutUpTo = entries.at(-1)?.id ?? this._laidOutUpTo;
 
-        if (rebuild && !this._following && this._anchor) {
+        if (rebuild && this._anchor) {
             this._scrollY = this._resolveAnchor(this._anchor);
+            // Clamped to the bottom (e.g. few lines left after a filter change): follow new lines
+            // from there. The anchor stays, so that changing the filter back returns to the entry.
+            this._following = this._scrollY >= this._maxScroll() - 0.5;
 
             if (this._anchor.entryId < this._store.firstId) this._anchor = this._anchorAt(this._scrollY);
+        } else if (this._following && this._lines.length > lineCount) {
+            // New lines were followed: the view no longer shows where the reader was.
+            this._anchor = null;
         }
     }
 
@@ -1433,17 +1520,9 @@ export class PixiConsole extends Container {
      */
     private _resolveAnchor(anchor: ScrollAnchor): number {
         const lines = this._lines;
-        let first = 0;
-        let end = lines.length;
-
-        // Entry ids grow along the lines: binary search the first line of the anchor entry or a later one.
-        while (first < end) {
-            const middle = Math.floor((first + end) / 2);
-
-            if ((lines[middle]?.entry.id ?? Infinity) < anchor.entryId) first = middle + 1;
-            else end = middle;
-        }
-
+        // The first line of the anchor entry, or of a later one: entry ids grow along the lines.
+        const found = lines.findIndex((line) => line.entry.id >= anchor.entryId);
+        const first = found < 0 ? lines.length : found;
         const entry = lines[first]?.entry;
 
         if (entry?.id !== anchor.entryId) return first * this._lineHeight;
@@ -1568,7 +1647,9 @@ function acquireFont(fontFamily: string, fontSize: number, resolution: number): 
             resolution,
             dynamicFill: true,
             // Monospace fonts have no kerning pairs, and looking for them costs O(glyphs²) over time.
-            skipKerning: true,
+            // pixi.js 8.0 to 8.16 look for them when the flag is true (fixed in 8.17): pass what skips
+            // them on the installed version.
+            skipKerning: pixiAtLeast(8, 17, 0),
         });
     }
 
@@ -1588,7 +1669,27 @@ function releaseFont(name: string): void {
     }
 
     fontUsers.delete(name);
-    BitmapFont.uninstall(name);
+
+    // pixi.js before 8.1.6 throws while uninstalling a font with a glyph that has no texture, such
+    // as the space, halfway through. Keep the font installed there: acquireFont() reuses it.
+    if (pixiAtLeast(8, 1, 6)) BitmapFont.uninstall(name);
+}
+
+/**
+ * Whether the installed pixi.js is `major.minor.patch` or later, to work around bugs of older
+ * versions in the peer range.
+ * @internal
+ */
+export function pixiAtLeast(major: number, minor: number, patch: number, version = VERSION): boolean {
+    const installed = version.split(".").map((part) => parseInt(part, 10));
+
+    for (const [i, wanted] of [major, minor, patch].entries()) {
+        const part = installed[i] ?? 0;
+
+        if (part !== wanted) return part > wanted;
+    }
+
+    return true;
 }
 
 /**
@@ -1619,15 +1720,13 @@ function commonPrefix(words: readonly string[]): string {
     return prefix;
 }
 
-/** An error's `message`, or `""` when it has none or reading it throws. */
-function messageOf(error: unknown): string {
-    try {
-        const { message } = error as { message?: unknown };
-
-        return typeof message === "string" ? message : "";
-    } catch {
-        return "";
+/** Whether `container` and all its parents are visible and renderable. */
+function isShown(container: Container): boolean {
+    for (let node: Container | null = container; node; node = node.parent) {
+        if (!node.visible || !node.renderable) return false;
     }
+
+    return true;
 }
 
 /** Product of `alpha` from `container` up its parents, or `0` when it or a parent is hidden. */

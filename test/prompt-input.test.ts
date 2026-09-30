@@ -52,6 +52,7 @@ function canvasBox(overrides: Partial<CanvasBox> = {}): CanvasBox {
         contentY: 0,
         contentWidth: 800,
         contentHeight: 600,
+        clip: { top: 0, right: 0, bottom: 0, left: 0 },
         ...overrides,
     };
 }
@@ -79,6 +80,7 @@ describe("overlayStyles", () => {
                 scale: "none",
                 "z-index": "",
                 opacity: "",
+                "clip-path": "inset(0)",
             },
             input: {
                 width: "800px",
@@ -170,6 +172,13 @@ describe("overlayStyles", () => {
         });
     });
 
+    it("clips the host to the given insets", () => {
+        const box = canvasBox({ clip: { top: 120, right: 460.25, bottom: 280, left: 0 } });
+
+        expect(overlayStyles(box, geometry()).host["clip-path"]).toBe("inset(120px 460.25px 280px 0px)");
+        expect(overlayStyles(canvasBox(), geometry()).host["clip-path"]).toBe("inset(0)");
+    });
+
     it("produces stable strings", () => {
         const noisy = geometry({ origin: { x: 0.1 + 0.2, y: 560.0000001 }, xAxis: { x: 1 - 1e-12, y: -1e-12 } });
         const clean = geometry({ origin: { x: 0.3, y: 560 } });
@@ -247,6 +256,108 @@ describe("measureCanvas", () => {
             rotate: "none",
             scale: "none",
             zIndex: "",
+        });
+    });
+
+    describe("overflow containers inside the containing block", () => {
+        let inner: HTMLDivElement;
+
+        // Longhands: jsdom doesn't expand the `overflow` shorthand.
+        function overflow(element: HTMLElement, x: string, y: string): void {
+            element.style.overflowX = x;
+            element.style.overflowY = y;
+        }
+
+        /** container > inner > [canvas, host], all in the offset parent `body`, the host at its origin. */
+        beforeEach(() => {
+            inner = container.appendChild(document.createElement("div"));
+            inner.append(canvas, host);
+            stub(canvas, {
+                offsetParent: document.body,
+                offsetLeft: 5,
+                offsetTop: 5,
+                offsetWidth: 800,
+                offsetHeight: 600,
+            });
+            stub(host, { offsetParent: document.body, offsetLeft: 0, offsetTop: 0 });
+            stub(container, {
+                offsetLeft: 0,
+                offsetTop: 0,
+                clientLeft: 0,
+                clientTop: 0,
+                clientWidth: 500,
+                clientHeight: 400,
+                scrollLeft: 0,
+                scrollTop: 30,
+            });
+            // Offsets leave out the container's scroll.
+            stub(inner, {
+                offsetLeft: 5,
+                offsetTop: 5,
+                clientLeft: 0,
+                clientTop: 0,
+                clientWidth: 350,
+                clientHeight: 500,
+                scrollLeft: 25,
+                scrollTop: 90,
+            });
+            overflow(container, "auto", "auto");
+            overflow(inner, "scroll", "scroll");
+        });
+
+        it("subtracts their scroll and clips to what they show", () => {
+            expect(measureCanvas(canvas, host)).toMatchObject({
+                left: -20,
+                top: -115,
+                // Shown: x 25 to 375 of the canvas (inner), y 115 to 515 (container).
+                clip: { top: 115, right: 425, bottom: 85, left: 25 },
+            });
+
+            // Clipping only along the axes that don't overflow visibly.
+            overflow(container, "hidden", "visible");
+            overflow(inner, "visible", "clip");
+
+            expect(measureCanvas(canvas, host).clip).toEqual({ top: 90, right: 280, bottom: 10, left: 20 });
+        });
+
+        it("ignores boxes overflow doesn't apply to", () => {
+            const none = { top: 0, right: 0, bottom: 0, left: 0 };
+
+            overflow(container, "visible", "visible");
+            inner.style.display = "contents";
+
+            expect(measureCanvas(canvas, host).clip).toEqual(none);
+
+            inner.style.display = "inline";
+
+            expect(measureCanvas(canvas, host).clip).toEqual(none);
+        });
+
+        it("leaves a transformed canvas unclipped", () => {
+            canvas.style.transform = "scale(0.5)";
+
+            expect(measureCanvas(canvas, host)).toMatchObject({
+                left: -20,
+                top: -115,
+                clip: { top: 0, right: 0, bottom: 0, left: 0 },
+            });
+        });
+
+        it("leaves out positioned and undisplayed canvases", () => {
+            const unaffected = { left: 5, top: 5, clip: { top: 0, right: 0, bottom: 0, left: 0 } };
+
+            // Positioned against the containing block, not scrolled by the containers inside it.
+            canvas.style.position = "absolute";
+            expect(measureCanvas(canvas, host)).toMatchObject(unaffected);
+
+            canvas.style.position = "fixed";
+            stub(canvas, { offsetParent: null });
+            stub(host, { offsetParent: null });
+            expect(measureCanvas(canvas, host)).toMatchObject(unaffected);
+
+            // No offset parent: nothing is laid out.
+            canvas.style.position = "";
+            expect(measureCanvas(canvas, host)).toMatchObject(unaffected);
         });
     });
 
@@ -408,16 +519,40 @@ describe("PromptInput", () => {
             expect(host.style.position).toBe("absolute");
         });
 
-        it("keeps a focused input in place", () => {
+        it("keeps a focused input in place while it follows the canvas", () => {
             prompt.place(canvas, geometry());
             prompt.focus();
 
             expect(prompt.focused).toBe(true);
 
-            canvas.after(document.createElement("span"));
+            container.append(document.createElement("span"));
             prompt.place(canvas, geometry({ origin: { x: 5, y: 5 } }));
 
             expect(prompt.focused).toBe(true);
+            // Never blurred: the host was not moved.
+            expect(handlers.focusChange.mock.calls).toEqual([[true]]);
+        });
+
+        it("moves back right after the canvas, keeping focus", () => {
+            const host = prompt.element.closest("[data-pixi-console]");
+
+            prompt.place(canvas, geometry());
+            prompt.focus();
+
+            // The canvas appended again, after the host.
+            container.append(canvas);
+            prompt.place(canvas, geometry());
+
+            expect(canvas.nextElementSibling).toBe(host);
+            expect(prompt.focused).toBe(true);
+
+            // Something inserted in between.
+            canvas.after(document.createElement("span"));
+            prompt.place(canvas, geometry());
+
+            expect(canvas.nextElementSibling).toBe(host);
+            expect(prompt.focused).toBe(true);
+            expect(handlers.focusChange.mock.calls.at(-1)).toEqual([true]);
         });
 
         it("orders the hosts of several consoles by first placement", () => {
@@ -430,6 +565,13 @@ describe("PromptInput", () => {
 
             expect(hosts.map((element) => element.contains(prompt.element))).toEqual([true, false]);
             expect(hosts.map((element) => element.contains(other.element))).toEqual([false, true]);
+
+            // Moved back behind the canvas in the same order.
+            container.append(canvas);
+            prompt.place(canvas, geometry());
+            other.place(canvas, geometry());
+
+            expect([...container.children]).toEqual([canvas, ...hosts]);
 
             other.destroy();
         });

@@ -74,6 +74,19 @@ export interface CanvasBox {
     contentY: number;
     contentWidth: number;
     contentHeight: number;
+    /**
+     * What the host must clip off each side of the border box: parts of the canvas that overflow
+     * containers between it and the host's containing block clip away, but the host is outside of.
+     */
+    clip: Insets;
+}
+
+/** Distances from the top, right, bottom and left edges of a box. */
+export interface Insets {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
 }
 
 type HostProperty =
@@ -88,7 +101,8 @@ type HostProperty =
     | "rotate"
     | "scale"
     | "z-index"
-    | "opacity";
+    | "opacity"
+    | "clip-path";
 
 type InputProperty = "width" | "height" | "line-height" | "font-size" | "padding-left" | "padding-right" | "transform";
 
@@ -107,6 +121,9 @@ const MIN_INPUT_FONT_SIZE = 16;
 /** Keeps page stylesheets (`div { … }`, `input { … }` rules) from moving or resizing the overlay. */
 const SHIELD_STYLES = { "min-width": "0", "max-width": "none", "min-height": "0", "max-height": "none" };
 
+/** Host `clip-path` showing the whole canvas box. */
+const NO_CLIP = "inset(0)";
+
 const HOST_STYLES: Readonly<Record<string, string>> = {
     position: "absolute",
     // Not `auto`: measureCanvas needs the host at a known offset from its containing block's origin.
@@ -119,7 +136,7 @@ const HOST_STYLES: Readonly<Record<string, string>> = {
     "box-sizing": "border-box",
     "pointer-events": "none",
     // Clips the input to the canvas without creating a scroll container that focusing could scroll.
-    "clip-path": "inset(0)",
+    "clip-path": NO_CLIP,
     ...SHIELD_STYLES,
 };
 
@@ -175,7 +192,8 @@ const INPUT_ATTRIBUTES: Readonly<Record<string, string>> = {
  *
  * The input lives in a form inside a host `<div>` inserted after the canvas. The host copies the
  * canvas's box and transform, so the input can be placed in canvas coordinates whatever the page
- * layout (scroll, positioned or transformed ancestors, CSS scaling, canvas padding and border).
+ * layout (scroll, positioned or transformed ancestors, CSS scaling, canvas padding and border), and
+ * is clipped like the canvas by the overflow containers it is in.
  * Styles are only ever set through CSSOM, never a `style` attribute or a stylesheet, which keeps it
  * working under a strict `style-src` and Trusted Types.
  */
@@ -186,7 +204,7 @@ export class PromptInput {
     private readonly _handlers: PromptHandlers;
     private readonly _host: HTMLDivElement;
     /** Style values last written by {@link place}, to skip unchanged writes. */
-    private readonly _hostStyles: Record<string, string> = { position: "absolute" };
+    private readonly _hostStyles: Record<string, string> = { position: "absolute", "clip-path": NO_CLIP };
     private readonly _inputStyles: Record<string, string> = {};
     private readonly _removeListeners: (() => void)[] = [];
     private _composing = false;
@@ -260,12 +278,14 @@ export class PromptInput {
             return;
         }
 
-        // Never re-insert while in the right parent: moving a focused element blurs it, and several
-        // consoles would keep swapping places.
-        if (this._host.parentNode !== parent) {
+        // Right after the canvas (or other consoles' hosts there), so it paints over the canvas and
+        // under whatever covers it. Only re-inserted when that changes, e.g. the canvas was appended
+        // again: moving an element blurs it, and several consoles would keep swapping places.
+        if (!followsCanvas(this._host, canvas)) {
+            const focused = this.focused;
             let anchor: Element = canvas;
 
-            // After the hosts already there, so hosts follow the render order of their consoles.
+            // After the hosts already there: hosts are in the order they were inserted.
             for (
                 let next = anchor.nextElementSibling;
                 next?.hasAttribute(HOST_ATTRIBUTE);
@@ -274,6 +294,7 @@ export class PromptInput {
                 anchor = next;
             }
             anchor.after(this._host);
+            if (focused) this.element.focus({ preventScroll: true });
         }
 
         // All layout reads happen in measureCanvas, before any write.
@@ -465,13 +486,37 @@ export function measureCanvas(canvas: HTMLElement, host: HTMLElement): CanvasBox
     const paddingBottom = parseFloat(style.paddingBottom) || 0;
     const hostLeft = parseFloat(host.style.left) || 0;
     const hostTop = parseFloat(host.style.top) || 0;
+    const width = canvas.offsetWidth;
+    const height = canvas.offsetHeight;
+    const transforms = {
+        transform: style.transform || "none",
+        translate: style.getPropertyValue("translate") || "none",
+        rotate: style.getPropertyValue("rotate") || "none",
+        scale: style.getPropertyValue("scale") || "none",
+    };
     let left: number;
     let top: number;
+    let clip: Insets = { top: 0, right: 0, bottom: 0, left: 0 };
 
     if (host.offsetParent === canvas.offsetParent) {
         // Same containing block: the bracket is the offset of its origin (a positioned body, borders…).
-        left = canvas.offsetLeft - (host.offsetLeft - hostLeft);
-        top = canvas.offsetTop - (host.offsetTop - hostTop);
+        const bracketX = host.offsetLeft - hostLeft;
+        const bracketY = host.offsetTop - hostTop;
+        const inFlow = style.position !== "absolute" && style.position !== "fixed";
+        const { scrollX, scrollY, visible } = inFlow ? innerOverflow(canvas) : NO_OVERFLOW;
+
+        left = canvas.offsetLeft - bracketX - scrollX;
+        top = canvas.offsetTop - bracketY - scrollY;
+
+        // Insets are in the host's coordinates, before its transform: only mapped without one.
+        if (Object.values(transforms).every((value) => value === "none")) {
+            clip = {
+                top: clamp(visible.top - bracketY - top, height),
+                right: clamp(left + width - (visible.right - bracketX), width),
+                bottom: clamp(top + height - (visible.bottom - bracketY), height),
+                left: clamp(visible.left - bracketX - left, width),
+            };
+        }
     } else {
         // E.g. a canvas in a static table cell. Converges on the next frame; assumes no rotated ancestor.
         const canvasRect = canvas.getBoundingClientRect();
@@ -487,20 +532,99 @@ export function measureCanvas(canvas: HTMLElement, host: HTMLElement): CanvasBox
         position: style.position === "fixed" ? "fixed" : "absolute",
         left,
         top,
-        width: canvas.offsetWidth,
-        height: canvas.offsetHeight,
-        transform: style.transform || "none",
+        width,
+        height,
+        ...transforms,
         transformOrigin: style.transformOrigin || "",
-        translate: style.getPropertyValue("translate") || "none",
-        rotate: style.getPropertyValue("rotate") || "none",
-        scale: style.getPropertyValue("scale") || "none",
         // The host comes after the canvas, so with an equal z-index it paints on top.
         zIndex: style.zIndex === "auto" ? "" : style.zIndex,
         contentX: canvas.clientLeft + paddingLeft,
         contentY: canvas.clientTop + paddingTop,
         contentWidth: Math.max(0, canvas.clientWidth - paddingLeft - paddingRight),
         contentHeight: Math.max(0, canvas.clientHeight - paddingTop - paddingBottom),
+        clip,
     };
+}
+
+/** Edges of a box, in the coordinates of `offsetLeft` and `offsetTop`. */
+interface Edges {
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+}
+
+/** What overflow containers do to the canvas: how far they scroll it, and what part of it they show. */
+interface Overflow {
+    scrollX: number;
+    scrollY: number;
+    visible: Edges;
+}
+
+const NO_OVERFLOW: Readonly<Overflow> = {
+    scrollX: 0,
+    scrollY: 0,
+    visible: { left: -Infinity, top: -Infinity, right: Infinity, bottom: Infinity },
+};
+
+/**
+ * Scroll offset and visible area of the elements between an in-flow canvas and its offset parent.
+ * The canvas scrolls with them and they clip it, but not the host, which is positioned against the
+ * offset parent (e.g. `#app { overflow: auto }` without `position`). Offsets leave their scroll out.
+ */
+function innerOverflow(canvas: HTMLElement): Readonly<Overflow> {
+    const offsetParent = canvas.offsetParent;
+    const ancestors: HTMLElement[] = [];
+
+    // Without an offset parent (not displayed), the walk would reach the root, whose scroll is the page's.
+    if (!offsetParent) return NO_OVERFLOW;
+
+    for (let element = canvas.parentElement; element && element !== offsetParent; element = element.parentElement) {
+        ancestors.push(element);
+    }
+
+    const visible = { ...NO_OVERFLOW.visible };
+    let scrollX = 0;
+    let scrollY = 0;
+
+    // Outermost first: each element is moved by the scroll of those around it.
+    for (const element of ancestors.reverse()) {
+        const { display, overflowX, overflowY } = getComputedStyle(element);
+
+        // Overflow doesn't apply to inline boxes, and `display: contents` has no box.
+        if (display !== "inline" && display !== "contents") {
+            const left = element.offsetLeft + element.clientLeft - scrollX;
+            const top = element.offsetTop + element.clientTop - scrollY;
+
+            if (overflowX !== "visible") {
+                visible.left = Math.max(visible.left, left);
+                visible.right = Math.min(visible.right, left + element.clientWidth);
+            }
+            if (overflowY !== "visible") {
+                visible.top = Math.max(visible.top, top);
+                visible.bottom = Math.min(visible.bottom, top + element.clientHeight);
+            }
+        }
+
+        scrollX += element.scrollLeft;
+        scrollY += element.scrollTop;
+    }
+
+    return { scrollX, scrollY, visible };
+}
+
+/** `value` within `[0, max]`. */
+function clamp(value: number, max: number): number {
+    return Math.min(Math.max(value, 0), max);
+}
+
+/** Whether `host` is right after `canvas`, or after other hosts that are. */
+function followsCanvas(host: Element, canvas: Element): boolean {
+    let previous = host.previousElementSibling;
+
+    while (previous?.hasAttribute(HOST_ATTRIBUTE)) previous = previous.previousElementSibling;
+
+    return previous === canvas;
 }
 
 /**
@@ -534,6 +658,7 @@ export function overlayStyles(box: CanvasBox, geometry: PromptGeometry): Overlay
             scale: box.scale,
             "z-index": box.zIndex,
             opacity: opacity < 1 ? String(round(Math.max(0, opacity), 3)) : "",
+            "clip-path": clipPath(box.clip),
         },
         input: {
             width: px(geometry.width / k),
@@ -545,6 +670,11 @@ export function overlayStyles(box: CanvasBox, geometry: PromptGeometry): Overlay
             transform: `matrix(${[...linear, ...offset].join(", ")})`,
         },
     };
+}
+
+/** `clip-path` cutting `insets` off the host. */
+function clipPath({ top, right, bottom, left }: Insets): string {
+    return top || right || bottom || left ? `inset(${[top, right, bottom, left].map(px).join(" ")})` : NO_CLIP;
 }
 
 /** CSS pixels of the host's containing block per viewport pixel. */

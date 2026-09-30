@@ -13,10 +13,15 @@ export interface JsEvaluatorOptions {
 const SCOPE_KEY = "__pixiConsoleScope__";
 
 /**
- * Creates an evaluator that runs lines as JavaScript, like the devtools console: the value of the
- * last statement is printed, `{ a: 1 }` is an object literal, `await` works (`await fetch(url)`),
- * `$_` is the previous result and `scope` values are in scope. `var` and function declarations
- * persist between lines as globals; `let`/`const` do not. Lines run in sloppy mode.
+ * Creates an evaluator that runs lines as JavaScript, much like the devtools console: the value of
+ * the last statement is printed, `{ a: 1 }` is an object literal, `$_` is the previous result and
+ * `scope` values are in scope. `var` and function declarations persist between lines as globals;
+ * `let`/`const` do not. Lines run in sloppy mode.
+ *
+ * `await` works at the top level when the line is a single expression (`await Assets.load(url)`).
+ * Any other line with an `await` (several statements, or a declaration like `var tex = await …`)
+ * runs inside an async function: its result is `undefined` and its declarations don't persist, so
+ * write `globalThis.tex = await …` to keep a value.
  *
  * Uses indirect `eval`, so a page whose Content-Security-Policy lacks `'unsafe-eval'` (or that
  * enforces Trusted Types for scripts) refuses it: the console then prints a hint and commands keep
@@ -67,7 +72,9 @@ function evaluate(code: string, scope: object): unknown {
 
         return indirectEval(`with (${SCOPE_KEY}) {\n${source}\n}`);
     };
-    const unparsable = (error: unknown) => error instanceof SyntaxError && !started;
+    // `started` first: what the code threw is never retried, and `instanceof` throws for some values
+    // (revoked proxies), which would replace the thrown value with a TypeError.
+    const unparsable = (error: unknown) => !started && error instanceof SyntaxError;
 
     try {
         if (/^\{[\s\S]*\}$/.test(code)) {
@@ -85,7 +92,8 @@ function evaluate(code: string, scope: object): unknown {
         }
 
         try {
-            return run(`(async () => (\n${code}\n))()`);
+            // Without trailing `;`, so `await x;` is still one expression and its value is printed.
+            return run(`(async () => (\n${trimTrailingSemicolons(code)}\n))()`);
         } catch (error) {
             if (!unparsable(error)) throw error;
         }
@@ -94,4 +102,13 @@ function evaluate(code: string, scope: object): unknown {
     } finally {
         Reflect.deleteProperty(globalThis, SCOPE_KEY);
     }
+}
+
+/** `code` without trailing `;` and whitespace. A loop, since `/[\s;]+$/` is quadratic on long runs. */
+function trimTrailingSemicolons(code: string): string {
+    let end = code.length;
+
+    while (end > 0 && /[\s;]/.test(code.charAt(end - 1))) end--;
+
+    return code.slice(0, end);
 }

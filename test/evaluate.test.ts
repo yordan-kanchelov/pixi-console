@@ -119,9 +119,25 @@ describe("createJsEvaluator", () => {
             try {
                 expect(await (result as Promise<unknown>)).toBeUndefined();
                 expect(globals.pixiConsoleZ).toBe(3);
+                // Declarations stay inside the async body, as documented.
+                expect(
+                    await (evaluate("var pixiConsoleAwaited = await 1", context()) as Promise<unknown>),
+                ).toBeUndefined();
+                expect("pixiConsoleAwaited" in globals).toBe(false);
             } finally {
                 delete globals.pixiConsoleZ;
             }
+        });
+
+        it("prints the value of an await expression ending in a semicolon", async () => {
+            const count = vi.fn(() => 7);
+            const counting = createJsEvaluator({ scope: { count } });
+
+            expect(await (evaluate("await Promise.resolve(7);", context()) as Promise<unknown>)).toBe(7);
+            expect(await (evaluate("await Promise.resolve(value) ; ;", context()) as Promise<unknown>)).toBe(3);
+            // Parsed as an expression without running first, so it runs once.
+            expect(await (counting("await count();", context()) as Promise<unknown>)).toBe(7);
+            expect(count).toHaveBeenCalledTimes(1);
         });
 
         it("keeps the scope in async continuations", async () => {
@@ -193,6 +209,23 @@ describe("createJsEvaluator", () => {
             // Contains "await" but parses: must not be re-run as an async body.
             expect(() => evaluate('count(); JSON.parse("await")', context())).toThrow(SyntaxError);
             expect(count).toHaveBeenCalledTimes(2);
+        });
+
+        it("rethrows what the code throws, even values instanceof cannot inspect", () => {
+            const { proxy, revoke } = Proxy.revocable({}, {});
+            const evaluate = createJsEvaluator({ scope: { proxy } });
+            let thrown: unknown;
+
+            revoke();
+            try {
+                evaluate("throw proxy", context());
+            } catch (error) {
+                thrown = error;
+            }
+
+            // Not the TypeError that `proxy instanceof SyntaxError` throws.
+            expect(thrown === proxy).toBe(true);
+            expect(SCOPE_KEY in globals).toBe(false);
         });
 
         it("only retries lines that do not parse", () => {
