@@ -1,7 +1,7 @@
 import "./style.css";
 
 import { Application, VERSION } from "pixi.js";
-import { createJsEvaluator, PixiConsole, type ConsoleCommand, type LogLevel } from "pixi-console";
+import { createJsEvaluator, DEFAULT_OPTIONS, PixiConsole, type ConsoleCommand, type LogLevel } from "pixi-console";
 
 import { createScene } from "./scene";
 
@@ -19,6 +19,7 @@ interface Settings {
     textRenderer: "bitmap" | "canvas";
     timestamps: boolean;
     collapseRepeats: boolean;
+    maxEntries: number;
     toolbar: boolean;
     prompt: boolean;
     /** Whether lines that aren't commands run as JavaScript. */
@@ -53,28 +54,16 @@ async function startPlayground(): Promise<void> {
         textRenderer: "bitmap",
         timestamps: false,
         collapseRepeats: true,
+        maxEntries: DEFAULT_OPTIONS.maxEntries,
         toolbar: true,
         prompt: true,
         evaluator: true,
     };
     const evaluator = createJsEvaluator({ scope: { app } });
+    // JavaScript only runs from the prompt here, so "evaluate JS" is disabled while the prompt is off.
+    const activeEvaluator = () => (settings.prompt && settings.evaluator ? evaluator : null);
     const commands: Record<string, ConsoleCommand> = {
-        speed: {
-            usage: "[multiplier]",
-            description: "Shows or sets the animation speed",
-            run: ([multiplier]) => {
-                if (multiplier === undefined) return `Speed is ${app.ticker.speed}`;
-
-                const speed = Number(multiplier);
-
-                if (!Number.isFinite(speed) || speed < 0) throw new RangeError(`"${multiplier}" is not a speed`);
-
-                app.ticker.speed = speed;
-
-                return `Speed set to ${speed}`;
-            },
-        },
-        fps: { description: "Shows the frame rate", run: () => app.ticker.FPS.toFixed(1) },
+        ...demoCommands(app),
         boom: {
             description: "Throws an error",
             run: () => {
@@ -97,7 +86,7 @@ async function startPlayground(): Promise<void> {
         pixiConsole = new PixiConsole({
             visible: true,
             ...settings,
-            evaluator: settings.evaluator ? evaluator : null,
+            evaluator: activeEvaluator(),
             commands,
             filter: previous?.filter,
             autoResize: { renderer: app.renderer, layout: consoleLayout },
@@ -120,16 +109,21 @@ async function startPlayground(): Promise<void> {
     const apply = (name: RuntimeSetting) => {
         if (!pixiConsole) return;
 
-        if (name === "evaluator") pixiConsole.evaluator = settings.evaluator ? evaluator : null;
-        else pixiConsole[name] = settings[name];
+        if (name === "maxEntries") pixiConsole.maxEntries = settings.maxEntries;
+        else if (name !== "evaluator") pixiConsole[name] = settings[name];
+
+        if (name === "evaluator" || name === "prompt") pixiConsole.evaluator = activeEvaluator();
     };
 
     const syncControls = () => {
         const evaluatorSwitch = document.querySelector<HTMLInputElement>("#settings [name='evaluator']");
+        const focusButton = document.querySelector<HTMLButtonElement>("#command-line [data-focus]");
         const hint = document.querySelector<HTMLElement>("#stage-hint");
 
-        // Lines only reach the evaluator through the command line.
+        // The playground only sends JavaScript through the command line, and focusPrompt() needs it too.
+        // execute() works without it, so the other command-line buttons stay enabled.
         if (evaluatorSwitch) evaluatorSwitch.disabled = !settings.prompt;
+        if (focusButton) focusButton.disabled = !settings.prompt;
         if (hint) hint.hidden = !settings.prompt;
         renderSnippet(settings);
     };
@@ -172,6 +166,31 @@ async function startPlayground(): Promise<void> {
             player.self = player;
             console.log("player", player);
         },
+        binary: () => {
+            const scores: number[] = [];
+            scores[0] = 1200;
+            scores[3] = 900;
+            const header = new ArrayBuffer(16);
+
+            console.log("quad", new Float32Array([0, 0, 64, 0, 64, 64, 0, 64]), new Uint16Array([0, 1, 2, 0, 2, 3]));
+            console.log("save file", header, new DataView(header, 4, 8));
+            console.log("high scores", scores);
+        },
+        cause: () => {
+            // One made-up frame per stack, so the whole chain fits in the console.
+            const at = <T extends Error>(error: T, frame: string): T =>
+                Object.assign(error, { stack: `${error.name}: ${error.message}\n    at ${frame}` });
+            const mirrors = new AggregateError(
+                [
+                    at(new Error("cdn-a.example.com answered 503"), "fetchLevel (net.ts:8:11)"),
+                    at(new Error("cdn-b.example.com timed out"), "fetchLevel (net.ts:8:11)"),
+                ],
+                "All mirrors failed",
+            );
+            const error = new Error("Could not load level 3", { cause: at(mirrors, "loadMirrors (levels.ts:14:9)") });
+
+            console.error(Object.assign(at(error, "loadLevel (levels.ts:27:11)"), { code: "LEVEL_LOAD" }));
+        },
         throw: () => {
             setTimeout(() => {
                 throw new Error("Boss is not defined");
@@ -201,14 +220,33 @@ async function startPlayground(): Promise<void> {
         if (action) actions[action]?.();
     });
 
+    // Plain execute() and focusPrompt() calls, as the caption says. execute() doesn't open a closed
+    // console, so show() does, or the output would stay hidden. focusPrompt() opens it by itself, and
+    // runs inside the click handler, so phones open the on-screen keyboard.
+    document.querySelector("#command-line")?.addEventListener("click", (event) => {
+        const button = (event.target as HTMLElement).closest<HTMLButtonElement>("button");
+
+        if (!button || !pixiConsole) return;
+
+        if (button.dataset.line) {
+            pixiConsole.show();
+            void pixiConsole.execute(button.dataset.line);
+        } else if ("focus" in button.dataset) {
+            pixiConsole.focusPrompt();
+        }
+    });
+
     document.querySelector("#settings")?.addEventListener("change", (event) => {
         const input = event.target as HTMLInputElement;
 
         if (input.name === "textRenderer") {
             settings.textRenderer = input.value as Settings["textRenderer"];
             mount();
+        } else if (input.name === "maxEntries") {
+            settings.maxEntries = Number(input.value);
+            apply("maxEntries");
         } else if (input.name in settings) {
-            const name = input.name as RuntimeSetting;
+            const name = input.name as Exclude<RuntimeSetting, "maxEntries">;
 
             settings[name] = input.checked;
             apply(name);
@@ -225,6 +263,28 @@ async function startPlayground(): Promise<void> {
             });
         });
     });
+}
+
+/** The commands both the playground and the GIF use. */
+function demoCommands(app: Application): Record<string, ConsoleCommand> {
+    return {
+        speed: {
+            usage: "[multiplier]",
+            description: "Shows or sets the animation speed",
+            run: ([multiplier]) => {
+                if (multiplier === undefined) return `Speed is ${app.ticker.speed}`;
+
+                const speed = Number(multiplier);
+
+                if (!Number.isFinite(speed) || speed < 0) throw new RangeError(`"${multiplier}" is not a speed`);
+
+                app.ticker.speed = speed;
+
+                return `Speed set to ${speed}`;
+            },
+        },
+        fps: { description: "Shows the frame rate", run: () => app.ticker.FPS.toFixed(1) },
+    };
 }
 
 function consoleLayout(screen: { width: number; height: number }) {
@@ -244,10 +304,16 @@ function renderSnippet(settings: Settings): void {
     if (settings.textRenderer !== "bitmap") options.push(`textRenderer: "${settings.textRenderer}",`);
     if (settings.timestamps) options.push("timestamps: true,");
     if (!settings.collapseRepeats) options.push("collapseRepeats: false,");
+    if (settings.maxEntries !== DEFAULT_OPTIONS.maxEntries) options.push(`maxEntries: ${settings.maxEntries},`);
     if (!settings.toolbar) options.push("toolbar: false,");
-    if (settings.prompt) {
-        options.push("prompt: true,", "commands: {", "    fps: () => app.ticker.FPS.toFixed(1),", "},");
-    }
+    if (settings.prompt) options.push("prompt: true,");
+    // The command-line buttons run these through execute(), which works with the prompt off too.
+    options.push(
+        "commands: {",
+        '    speed: ([x = "1"]) => (app.ticker.speed = Number(x)),',
+        "    fps: () => app.ticker.FPS.toFixed(1),",
+        "},",
+    );
     if (evaluate) {
         options.push("evaluator: import.meta.env.DEV", "    ? createJsEvaluator({ scope: { app } })", "    : null,");
     }
@@ -297,6 +363,8 @@ async function startRecording(width: number, height: number): Promise<void> {
         visible: true,
         toggleKey: null,
         fontSize: 15,
+        prompt: true,
+        commands: demoCommands(app),
         autoResize: { renderer: app.renderer, layout: consoleLayout },
     });
     app.stage.addChild(pixiConsole);
@@ -304,32 +372,53 @@ async function startRecording(width: number, height: number): Promise<void> {
     const bossError = new TypeError("Cannot read properties of undefined (reading 'hp')");
     bossError.stack = `${bossError.name}: ${bossError.message}\n    at Boss.update (boss.ts:42:17)\n    at Game.tick (game.ts:118:9)`;
 
-    const timeline: [number, () => void][] = [
-        [300, () => console.log(`Game booted with PixiJS v${VERSION} (${app.renderer.name})`)],
-        [900, () => console.info("Assets loaded", { textures: 42, sounds: 7 })],
-        [1500, () => console.log("player", { name: "bunny", hp: 100, pos: { x: 12, y: 34 } })],
-        ...Array.from({ length: 6 }, (_, i): [number, () => void] => [2100 + i * 120, () => console.log("tick")]),
-        [3000, () => console.warn("Texture atlas is %d%% full", 92)],
-        [3600, () => console.debug("pointerdown at", { x: 312, y: 188 })],
+    type Cue = [at: number, run: () => void];
+
+    const setPrompt = (value: string) => {
+        if (pixiConsole.promptElement) pixiConsole.promptElement.value = value;
+    };
+    // Types a line into the command line, a key every 80 ms, then runs it the way Enter does.
+    const type = (at: number, line: string): Cue[] => [
+        ...Array.from(line, (_, i): Cue => [at + i * 80, () => setPrompt(line.slice(0, i + 1))]),
         [
-            4300,
+            at + line.length * 80 + 250,
+            () => {
+                setPrompt("");
+                void pixiConsole.execute(line);
+            },
+        ],
+    ];
+
+    const timeline: Cue[] = [
+        [300, () => console.log(`Game booted with PixiJS v${VERSION} (${app.renderer.name})`)],
+        [800, () => console.info("Assets loaded", { textures: 42, sounds: 7 })],
+        [1300, () => console.log("player", { name: "bunny", hp: 100, pos: { x: 12, y: 34 } })],
+        ...Array.from({ length: 6 }, (_, i): Cue => [1800 + i * 120, () => console.log("tick")]),
+        [2700, () => console.warn("Texture atlas is %d%% full", 92)],
+        [3200, () => console.debug("pointerdown at", { x: 312, y: 188 })],
+        [
+            3800,
             () =>
                 setTimeout(() => {
                     throw bossError;
                 }),
         ],
-        [5400, () => (pixiConsole.filter = ["warn", "error"] satisfies LogLevel[])],
-        [6600, () => (pixiConsole.filter = ["log", "info", "debug", "warn", "error"])],
-        [7200, () => console.log("Recovered. Still running at 60 fps")],
+        [4700, () => (pixiConsole.filter = ["warn", "error"] satisfies LogLevel[])],
+        [5700, () => (pixiConsole.filter = ["log", "info", "debug", "warn", "error"])],
+        ...type(5900, "help"),
+        ...type(7000, "speed 0.5"),
     ];
 
     let elapsed = 0;
+    let sceneTime = 0;
     let next = 0;
 
     const step = (ms: number) => {
         elapsed += ms;
+        // The `speed` command sets the ticker's speed. The ticker is stopped here, so apply it by hand.
+        sceneTime += ms * app.ticker.speed;
         while (next < timeline.length && elapsed >= (timeline[next]?.[0] ?? Infinity)) timeline[next++]?.[1]();
-        updateScene(elapsed);
+        updateScene(sceneTime);
         app.render();
     };
 

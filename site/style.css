@@ -281,6 +281,37 @@ input:focus-visible {
     border-left-width: 3px;
 }
 
+.buttons button.line {
+    font-family: var(--mono);
+}
+
+.buttons button.line::before {
+    content: "> ";
+    color: var(--info);
+}
+
+.buttons button:disabled {
+    color: var(--muted);
+    cursor: default;
+    opacity: 0.6;
+}
+
+.buttons button:disabled:hover {
+    border-color: var(--border);
+    background: var(--surface-2);
+}
+
+.note {
+    margin: 10px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+#settings .note {
+    margin-top: 2px;
+}
+
 .lvl-log {
     border-left-color: var(--log) !important;
 }
@@ -368,6 +399,24 @@ input:focus-visible {
     cursor: default;
 }
 
+.option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-family: var(--mono);
+    font-size: 13px;
+}
+
+.option .segmented {
+    flex: 0 1 190px;
+    margin: 0;
+}
+
+.option .segmented label {
+    padding: 2px 0;
+}
+
 /* ------------------------------------------------------------------ code */
 
 .code {
@@ -396,6 +445,9 @@ input:focus-visible {
 }
 .tok-type {
     color: #d2a8ff;
+}
+.tok-comment {
+    color: var(--muted);
 }
 
 /* ------------------------------------------------------------------ features */
@@ -461,6 +513,14 @@ input:focus-visible {
 }
 
 /* ------------------------------------------------------------------ responsive */
+
+/* Keeps the stage in view next to a long panel, when the window is tall enough for all of it. */
+@media (min-width: 961px) and (min-height: 700px) {
+    .stage-column {
+        position: sticky;
+        top: 72px;
+    }
+}
 
 @media (max-width: 960px) {
     .playground,
