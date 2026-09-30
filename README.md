@@ -85,25 +85,25 @@ Every option is optional. These are the common ones:
 <details>
 <summary><b>All options</b></summary>
 
-| Option            | Default              | Description                                                                              |
-| ----------------- | -------------------- | ---------------------------------------------------------------------------------------- |
-| `captureErrors`   | `true`               | Capture uncaught errors and unhandled rejections.                                        |
-| `captureClear`    | `true`               | Clear when `console.clear()` is called.                                                  |
-| `filter`          | all levels           | Levels that are displayed.                                                               |
-| `maxEntries`      | `1000`               | History size. The oldest entries are dropped first.                                      |
-| `collapseRepeats` | `true`               | Merge consecutive identical messages.                                                    |
-| `timestamps`      | `false`              | Prefix entries with `HH:MM:SS.mmm`.                                                      |
-| `format`          | `{ depth: 2, … }`    | `depth`, `indent`, `maxItems`, `maxLength` for formatting values.                        |
-| `fontFamily`      | `Menlo, Consolas, …` | Monospace font stack.                                                                    |
-| `fontSize`        | `14`                 |                                                                                          |
-| `lineHeight`      | `fontSize * 1.4`     |                                                                                          |
-| `resolution`      | `devicePixelRatio`   | Glyph resolution.                                                                        |
-| `padding`         | `8`                  |                                                                                          |
-| `colors`          | GitHub-dark palette  | Text colour per level.                                                                   |
-| `backgroundColor` | `0x0d1117`           |                                                                                          |
-| `backgroundAlpha` | `0.85`               |                                                                                          |
-| `toolbar`         | `true`               | Level filters with counters, clear and close buttons.                                    |
-| `interactive`     | `true`               | Wheel/drag scrolling and buttons. `false` lets pointer events pass through to your game. |
+| Option            | Default                 | Description                                                                              |
+| ----------------- | ----------------------- | ---------------------------------------------------------------------------------------- |
+| `captureErrors`   | `true`                  | Capture uncaught errors and unhandled rejections.                                        |
+| `captureClear`    | `true`                  | Clear when `console.clear()` is called.                                                  |
+| `filter`          | all levels              | Levels that are displayed.                                                               |
+| `maxEntries`      | `1000`                  | History size. The oldest entries are dropped first.                                      |
+| `collapseRepeats` | `true`                  | Merge consecutive identical messages.                                                    |
+| `timestamps`      | `false`                 | Prefix entries with `HH:MM:SS.mmm`.                                                      |
+| `format`          | `{ depth: 2, … }`       | `depth`, `indent`, `maxItems`, `maxLength` for formatting values.                        |
+| `fontFamily`      | `Menlo, Consolas, …`    | Monospace font stack.                                                                    |
+| `fontSize`        | `14`                    |                                                                                          |
+| `lineHeight`      | `round(fontSize × 1.4)` |                                                                                          |
+| `resolution`      | `devicePixelRatio`      | Glyph resolution.                                                                        |
+| `padding`         | `8`                     |                                                                                          |
+| `colors`          | GitHub-dark palette     | Text colour per level.                                                                   |
+| `backgroundColor` | `0x0d1117`              |                                                                                          |
+| `backgroundAlpha` | `0.85`                  |                                                                                          |
+| `toolbar`         | `true`                  | Level filters with counters, clear and close buttons.                                    |
+| `interactive`     | `true`                  | Wheel/drag scrolling and buttons. `false` lets pointer events pass through to your game. |
 
 </details>
 
@@ -119,7 +119,7 @@ devConsole.show() / hide() / toggle();
 devConsole.scrollUp(3) / scrollDown() / scrollBy(-120) / scrollToTop() / scrollToBottom();
 devConsole.resize(1024, 300);
 devConsole.filter = ["warn", "error"]; // also: captureConsole, captureErrors, showOnError, toggleKey, autoResize
-devConsole.entries; // [{ id, level, message, timestamp, count }]
+devConsole.entries; // [{ id, level, message, timestamp, count, color? }]
 devConsole.destroy(); // restores console and removes every listener
 ```
 
@@ -152,10 +152,14 @@ v5 is a rewrite for PixiJS v8. Stay on `pixi-console@4` for PixiJS v6 or v7 (v5 
 
 ```sh
 npm install
-npm run dev    # playground at http://localhost:5173
-npm test       # unit tests + rendering tests in headless Chromium
+npx playwright install chromium # once, for the rendering tests
+npm run dev                     # playground at http://localhost:5173
+npm test                        # unit tests + rendering tests in headless Chromium
 npm run lint
+npm run typecheck
 ```
+
+To use a Chromium you already have instead, point `PW_CHROMIUM_PATH` at its executable (`PW_CHROMIUM_PATH=/usr/bin/chromium npm test`).
 
 Every PR that changes the package needs a [changeset](https://github.com/changesets/changesets) (`npx changeset`). Merging the "chore: version packages" PR publishes to npm.
 

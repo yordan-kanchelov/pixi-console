@@ -161,7 +161,10 @@ console.log(<span class="tok-string">"Hello from the canvas!"</span>);</code></p
     <span class="tok-keyword">await</span> app.init({ resizeTo: window });
     document.body.appendChild(app.canvas);
 
-    <span class="tok-keyword">const</span> devConsole = <span class="tok-keyword">new</span> <span class="tok-type">PixiConsole</span>.<span class="tok-type">PixiConsole</span>({ visible: <span class="tok-keyword">true</span> });
+    <span class="tok-keyword">const</span> devConsole = <span class="tok-keyword">new</span> <span class="tok-type">PixiConsole</span>.<span class="tok-type">PixiConsole</span>({
+        visible: <span class="tok-keyword">true</span>,
+        autoResize: { renderer: app.renderer },
+    });
     app.stage.addChild(devConsole);
 &lt;/<span class="tok-keyword">script</span>&gt;</code></pre>
                     <p class="muted">

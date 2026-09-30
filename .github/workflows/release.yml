@@ -37,6 +37,9 @@ jobs:
 
       # Opens/updates the "chore: version packages" PR while changesets are pending,
       # and publishes to npm + creates the GitHub release once that PR is merged.
+      # The PR is pushed with GITHUB_TOKEN, which triggers no workflows, so PR Checks don't run on its updates.
+      # If PR Checks become a required status check, pass a PAT or GitHub App token here
+      # (`github-token: ${{ secrets.RELEASE_TOKEN }}`), or don't require them on changeset-release/master.
       - name: Create Release Pull Request or Publish to npm
         id: changesets
         uses: changesets/action@v2
